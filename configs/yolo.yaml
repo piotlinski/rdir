@@ -1,0 +1,6 @@
+# @package _global_
+defaults:
+  - _self_
+  - darknet: default.yaml
+
+original_work_dir: ${hydra:runtime.cwd}

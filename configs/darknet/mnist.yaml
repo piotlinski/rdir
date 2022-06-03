@@ -1,0 +1,6 @@
+defaults:
+  - default.yaml
+
+training:
+  n_classes: 10
+  data_dir: ${original_work_dir}/data/mnist

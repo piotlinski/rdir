@@ -146,3 +146,5 @@ wandb/
 outputs/
 .env
 .autoenv
+.envrc
+.direnv/

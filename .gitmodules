@@ -1,0 +1,3 @@
+[submodule "src/vendor/yolov4"]
+	path = src/vendor/yolov4
+	url = git@github.com:piotlinski/pytorch-YOLOv4.git

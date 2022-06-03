@@ -1,0 +1,4 @@
+outs:
+- md5: a85668388a637d00dfd51b03131c253e
+  size: 12223
+  path: yolov4.cfg.template

@@ -1,0 +1,4 @@
+outs:
+- md5: f216daf4de305ae2f1587617805773ff
+  size: 19789716
+  path: yolov4-tiny.conv.29

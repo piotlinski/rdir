@@ -1,0 +1,14 @@
+schema: '2.0'
+stages:
+  extract_dsprites:
+    cmd: mkdir data/dsprites && tar -xzvf data/dsprites.tar.gz -C data/dsprites
+    deps:
+    - path: data/dsprites.tar.gz
+      md5: 798c39adf6bc07bc27608ab1f83c5a3d
+      size: 559115488
+  extract_mnist:
+    cmd: mkdir data/mnist && tar -xzvf data/mnist.tar.gz -C data/mnist
+    deps:
+    - path: data/mnist.tar.gz
+      md5: bff18825f616cca9cb66156fae232980
+      size: 493482561

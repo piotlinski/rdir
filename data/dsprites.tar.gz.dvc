@@ -1,0 +1,11 @@
+md5: 60f178ad4d2f0fb54cab72fdf20a1961
+frozen: true
+deps:
+- path: dsprites.tar.gz
+  repo:
+    url: git@github.com:piotlinski/moving_dsprites.git
+    rev_lock: eb2f81fc93cee634ad8a466724124a00656306cf
+outs:
+- md5: 798c39adf6bc07bc27608ab1f83c5a3d
+  size: 559115488
+  path: dsprites.tar.gz

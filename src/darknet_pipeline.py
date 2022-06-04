@@ -6,6 +6,7 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import List, Optional, Union
 
+from coolname import generate_slug
 from omegaconf import DictConfig
 
 from src import utils
@@ -31,7 +32,10 @@ def prepare_config(
     n_classes: int,
 ) -> Path:
     """Prepare yolo config given training parameters."""
-    with Path(template).open("r") as fp:
+    template_path = Path(template)
+    model_version = template_path.stem.split(".cfg.template")[0]
+    name = generate_slug(2)
+    with template_path.open("r") as fp:
         config = fp.read().format(
             batch=batch,
             n_classes=n_classes,
@@ -43,7 +47,7 @@ def prepare_config(
             steps=f"{int(0.8*max_batches)},{int(0.9*max_batches)}",
         )
 
-    with (ret := Path(f"{data_dir}.cfg")).open("w") as fp:
+    with (ret := Path(f"{data_dir}-{model_version}-{name}.cfg")).open("w") as fp:
         fp.writelines(config)
     return ret
 
@@ -115,7 +119,6 @@ def yolo(config: DictConfig) -> str:
                 "data/obj.data data/model.cfg data/yolov4.pretrained "
                 "-dont_show -mjpeg_port 8090",
             ]
-            trained = f"{config.darknet.training.data_dir}.weights"
 
             run_command(
                 f"tar -ch -C {config.darknet.training.data_dir} . | pv |"
@@ -143,6 +146,7 @@ def yolo(config: DictConfig) -> str:
 
             run_command(["docker", "exec", "-it", container, *cmd])
 
+            trained = prepared.with_suffix(".weights")
             run_command(
                 [
                     "docker",

@@ -28,6 +28,7 @@ rich            # beautiful text formatting in terminal
 pytest          # tests
 sh              # for running bash commands in some tests
 pudb            # debugger
+coolname        # names for trained YOLOv4 model
 
 # --------- darknet --------- #
 tensorboardX>=2.0

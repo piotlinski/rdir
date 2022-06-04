@@ -1,0 +1,9 @@
+defaults:
+  - default.yaml
+
+training:
+  n_classes: 24
+  data_dir: ${original_work_dir}/data/dsprites
+  subdivisions: 1
+  pretrained: ${original_work_dir}/data/yolo/yolov4-tiny.conv.29
+  cfg: ${original_work_dir}/data/yolo/yolov4-tiny.cfg.template

@@ -1,12 +1,14 @@
 """Darknet config and training."""
+import hashlib
 import os
+import random
 import subprocess
 import uuid
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from typing import List, Optional, Union
 
-from coolname import generate_slug
+import coolname
 from omegaconf import DictConfig
 
 from src import utils
@@ -22,6 +24,12 @@ LOCAL_USER = [
 ]
 
 
+def get_coolname(text: str) -> str:
+    """Get repeatable coolname for given text."""
+    coolname.replace_random(random.Random(hashlib.md5(text.encode()).digest()))
+    return coolname.generate_slug(2)
+
+
 def prepare_config(
     data_dir: str,
     template: str,
@@ -33,8 +41,7 @@ def prepare_config(
 ) -> Path:
     """Prepare yolo config given training parameters."""
     template_path = Path(template)
-    model_version = template_path.stem.split(".cfg.template")[0]
-    name = generate_slug(2)
+    model_version = template_path.stem.split(".")[0]
     with template_path.open("r") as fp:
         config = fp.read().format(
             batch=batch,
@@ -46,6 +53,8 @@ def prepare_config(
             max_batches=max_batches,
             steps=f"{int(0.8*max_batches)},{int(0.9*max_batches)}",
         )
+
+    name = get_coolname(config)
 
     with (ret := Path(f"{data_dir}-{model_version}-{name}.cfg")).open("w") as fp:
         fp.writelines(config)
@@ -155,4 +164,4 @@ def yolo(config: DictConfig) -> str:
                     trained,
                 ]
             )
-    return trained
+    return str(trained)

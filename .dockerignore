@@ -1,5 +1,4 @@
-.venv
+.direnv
 data
 logs
 outputs
-w

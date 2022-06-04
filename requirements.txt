@@ -39,3 +39,6 @@ easydict>=1.9  # 1.9
 Pillow>=7.1.2  # 9.0.0
 opencv_python  # 4.5.5.62
 pycocotools
+
+# --------- dir ---------- #
+pyro-ppl>=1.8.0  # 1.8.0

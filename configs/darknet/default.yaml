@@ -1,5 +1,5 @@
 docker:
-  image: darknet
+  image: ${oc.env:DARKNET_DOCKER_IMAGE}
   gpu_id: 0
 
 training:

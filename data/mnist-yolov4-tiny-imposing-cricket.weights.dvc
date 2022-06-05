@@ -1,0 +1,4 @@
+outs:
+- md5: a2c7bb682dc4b7035e69c38941abe157
+  size: 23604476
+  path: mnist-yolov4-tiny-imposing-cricket.weights

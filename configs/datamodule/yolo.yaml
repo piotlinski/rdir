@@ -1,0 +1,7 @@
+_target_: src.datamodules.yolo.MNISTDataModule
+
+data_dir: ${darknet.training.data_dir}
+config_path: ${model.yolo_config}
+batch_size: 32
+num_workers: 0
+image_size: ${darknet.training.size}

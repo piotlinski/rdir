@@ -1,0 +1,4 @@
+outs:
+- md5: 3785a28ac2099a85d8cab521e99b1442
+  size: 2982
+  path: dsprites-yolov4-tiny-tireless-jaguar.cfg

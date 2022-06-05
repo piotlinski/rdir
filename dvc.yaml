@@ -3,7 +3,9 @@ stages:
     cmd: mkdir data/mnist && tar -xzvf data/mnist.tar.gz -C data/mnist
     deps:
       - data/mnist.tar.gz
+    always_changed: true
   extract_dsprites:
     cmd: mkdir data/dsprites && tar -xzvf data/dsprites.tar.gz -C data/dsprites
     deps:
       - data/dsprites.tar.gz
+    always_changed: true

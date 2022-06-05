@@ -13,7 +13,9 @@ from src.datamodules.yolo import YOLODataModule
     ],
 )
 def test_yolo_datamodule(data_dir, config_path, batch_size):
-    datamodule = YOLODataModule(data_dir=data_dir, config_path=config_path, batch_size=batch_size)
+    datamodule = YOLODataModule(
+        data_dir=data_dir, config_path=config_path, batch_size=batch_size
+    )
     datamodule.prepare_data()
 
     assert not datamodule.train_dataset and not datamodule.val_dataset

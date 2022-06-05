@@ -3,7 +3,12 @@ from typing import List
 
 import hydra
 from omegaconf import DictConfig
-from pytorch_lightning import LightningDataModule, LightningModule, Trainer, seed_everything
+from pytorch_lightning import (
+    LightningDataModule,
+    LightningModule,
+    Trainer,
+    seed_everything,
+)
 from pytorch_lightning.loggers import LightningLoggerBase
 
 from src import utils
@@ -12,7 +17,8 @@ log = utils.get_logger(__name__)
 
 
 def test(config: DictConfig) -> None:
-    """Contains minimal example of the testing pipeline. Evaluates given checkpoint on a testset.
+    """Contains minimal example of the testing pipeline. Evaluates given checkpoint on a
+    testset.
 
     Args:
         config (DictConfig): Configuration composed by Hydra.
@@ -27,7 +33,9 @@ def test(config: DictConfig) -> None:
 
     # Convert relative ckpt path to absolute path if necessary
     if not os.path.isabs(config.ckpt_path):
-        config.ckpt_path = os.path.join(hydra.utils.get_original_cwd(), config.ckpt_path)
+        config.ckpt_path = os.path.join(
+            hydra.utils.get_original_cwd(), config.ckpt_path
+        )
 
     # Init lightning datamodule
     log.info(f"Instantiating datamodule <{config.datamodule._target_}>")

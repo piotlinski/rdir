@@ -153,8 +153,12 @@ class YOLODataset(Dataset):
                 )
 
                 if mosaic:
-                    left_shift = int(min(cut_x, max(0, (-int(left) * self.width / swidth))))
-                    top_shift = int(min(cut_y, max(0, (-int(top) * self.height / sheight))))
+                    left_shift = int(
+                        min(cut_x, max(0, (-int(left) * self.width / swidth)))
+                    )
+                    top_shift = int(
+                        min(cut_y, max(0, (-int(top) * self.height / sheight)))
+                    )
 
                     right_shift = int(
                         min(
@@ -198,7 +202,9 @@ class YOLODataset(Dataset):
             img = cv2.resize(img, (self.width, self.height))
 
         boxes = np.zeros([self.max_boxes, 5])
-        boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[: min(xywh.shape[0], self.max_boxes)]
+        boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
+            : min(xywh.shape[0], self.max_boxes)
+        ]
 
         return img.astype(np.float32), boxes.astype(np.float32)
 

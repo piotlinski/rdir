@@ -38,6 +38,7 @@ def prepare_config(
     max_batches: int,
     size: int,
     n_classes: int,
+    results_dir: str = "yolo/results",
 ) -> Path:
     """Prepare yolo config given training parameters."""
     template_path = Path(template)
@@ -55,10 +56,13 @@ def prepare_config(
         )
 
     name = get_coolname(config)
+    data_path = Path(data_dir)
+    config_filename = f"{data_path.stem}-{model_version}-{name}.cfg"
+    config_path = data_path.parent.joinpath(results_dir).joinpath(config_filename)
 
-    with (ret := Path(f"{data_dir}-{model_version}-{name}.cfg")).open("w") as fp:
+    with config_path.open("w") as fp:
         fp.writelines(config)
-    return ret
+    return config_path
 
 
 def run_command(cmd: Union[str, List[str]], **kwargs):

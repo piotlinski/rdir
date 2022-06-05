@@ -2,5 +2,3 @@
 /mnist
 /dsprites.tar.gz
 /dsprites
-/*.cfg
-/*.weights

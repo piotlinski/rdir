@@ -3,6 +3,7 @@ docker:
   gpu_id: 0
 
 training:
+  data_dir: ${data_dir}/mnist
   size: 416
   batch: 64
   subdivisions: 8
@@ -10,3 +11,6 @@ training:
   max_batches: 100000
   pretrained: ${original_work_dir}/data/yolo/yolov4.conv.137
   cfg: ${original_work_dir}/data/yolo/yolov4.cfg.template
+
+config: ""
+weights: null

@@ -8,26 +8,27 @@ A couple of sanity checks to make sure the model doesn't crash with different ru
 """
 
 
-def test_fast_dev_run():
+@pytest.mark.slow
+def test_fast_dev_run(base_command):
     """Test running for 1 train, val and test batch."""
-    command = ["train.py", "++trainer.fast_dev_run=true"]
+    command = [*base_command, "++trainer.fast_dev_run=true"]
     run_command(command)
 
 
 @pytest.mark.slow
-def test_cpu():
+def test_cpu(base_command):
     """Test running 1 epoch on CPU."""
-    command = ["train.py", "++trainer.max_epochs=1", "++trainer.gpus=0"]
+    command = [*base_command, "++trainer.max_epochs=1", "++trainer.gpus=0"]
     run_command(command)
 
 
 # use RunIf to skip execution of some tests, e.g. when no gpus are available
 @RunIf(min_gpus=1)
 @pytest.mark.slow
-def test_gpu():
+def test_gpu(base_command):
     """Test running 1 epoch on GPU."""
     command = [
-        "train.py",
+        *base_command,
         "++trainer.max_epochs=1",
         "++trainer.gpus=1",
     ]
@@ -36,10 +37,10 @@ def test_gpu():
 
 @RunIf(min_gpus=1)
 @pytest.mark.slow
-def test_mixed_precision():
+def test_mixed_precision(base_command):
     """Test running 1 epoch with pytorch native automatic mixed precision (AMP)."""
     command = [
-        "train.py",
+        *base_command,
         "++trainer.max_epochs=1",
         "++trainer.gpus=1",
         "++trainer.precision=16",
@@ -48,10 +49,10 @@ def test_mixed_precision():
 
 
 @pytest.mark.slow
-def test_double_validation_loop():
+def test_double_validation_loop(base_command):
     """Test running 1 epoch with validation loop twice per epoch."""
     command = [
-        "train.py",
+        *base_command,
         "++trainer.max_epochs=1",
         "++trainer.val_check_interval=0.5",
     ]

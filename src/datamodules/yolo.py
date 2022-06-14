@@ -13,6 +13,7 @@ import torch
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 
+from src.utils import get_logger
 from src.vendor.yolov4.dataset import (
     blend_truth_mosaic,
     fill_truth_detection,
@@ -21,6 +22,8 @@ from src.vendor.yolov4.dataset import (
     rand_uniform_strong,
 )
 from src.vendor.yolov4.train import collate
+
+logger = get_logger(__name__)
 
 
 class YOLODataset(Dataset):
@@ -307,6 +310,7 @@ class YOLODataModule(pl.LightningDataModule):
         batch_size: int,
         num_workers: int = 8,
         image_size: Optional[int] = 416,
+        pin_memory: bool = True,
     ):
         """
         :param data_dir: directory with dataset
@@ -314,6 +318,7 @@ class YOLODataModule(pl.LightningDataModule):
         :param batch_size: batch_size used in Data Module
         :param num_workers: number of workers used for loading data
         :param image_size: model input image size
+        :param pin_memory: pin memory while training
         """
         super().__init__()
 
@@ -322,6 +327,7 @@ class YOLODataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.image_size = image_size
+        self.pin_memory = pin_memory
 
         self.train_dataset: Optional[Dataset] = None
         self.val_dataset: Optional[Dataset] = None
@@ -338,8 +344,7 @@ class YOLODataModule(pl.LightningDataModule):
             archive_files.remove(".")
 
             if archive_files != files:
-                print(archive_files ^ files)
-                raise Exception
+                logger.info("Dataset files mismatch, extracting to %s", self.data_dir)
                 shutil.rmtree(data_path)
                 data_path.mkdir()
 
@@ -370,7 +375,7 @@ class YOLODataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=True,
             num_workers=self.num_workers,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             drop_last=True,
             collate_fn=collate,
         )
@@ -382,7 +387,7 @@ class YOLODataModule(pl.LightningDataModule):
             batch_size=self.batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            pin_memory=True,
+            pin_memory=self.pin_memory,
             drop_last=False,
             collate_fn=collate,
         )

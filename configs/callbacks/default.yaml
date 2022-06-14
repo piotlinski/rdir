@@ -17,7 +17,7 @@ early_stopping:
   min_delta: 0 # minimum change in the monitored metric needed to qualify as an improvement
 
 lr_monitor:
-  _target_: pytorch_ligthtning.callbacks.LearningRateMonitor
+  _target_: pytorch_lightning.callbacks.LearningRateMonitor
   logging_interval: "step"
 
 model_summary:

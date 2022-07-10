@@ -3,7 +3,7 @@ FROM nvcr.io/nvidia/pytorch:22.06-py3
 ARG WANDB_API_KEY
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONPATH=$PYTHONPATH:$PWD/src/vendor/yolov4 \
+    PYTHONPATH=$PYTHONPATH:/workspace/src/vendor:/workspace/src/vendor/yolov4 \
     WANDB_API_KEY=${WANDB_API_KEY}
 
 # entrypoint

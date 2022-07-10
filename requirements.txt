@@ -37,7 +37,7 @@ matplotlib>=2.2.3  # 3.5.1
 tqdm>=4.43.0  # 4.62.3
 easydict>=1.9  # 1.9
 Pillow>=7.1.2  # 9.0.0
-opencv_python  # 4.5.5.62
+opencv_python==4.5.5.64  # 4.5.5.64
 pycocotools
 
 # --------- dir ---------- #

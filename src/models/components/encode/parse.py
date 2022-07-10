@@ -128,7 +128,7 @@ class YOLOLayer(nn.Module):
         :return: detection confidences [batch, num_anchors * H * W, num_classes]
         """
         batch, _, H, W = det_confs.shape
-        det_confs = det_confs.view(batch, self.num_masked_anchors * H * W)
+        det_confs = det_confs.reshape(batch, self.num_masked_anchors * H * W)
         cls_confs = cls_confs.view(
             batch, self.num_masked_anchors, self.num_classes, H * W
         )
@@ -182,19 +182,19 @@ class YOLOLayer(nn.Module):
             bh_list.append(bwh[:, ii + 1 : ii + 2] * anchor_h[i])
 
         bx = (
-            torch.cat(bx_list, dim=1).view(batch, self.num_masked_anchors * H * W, 1)
+            torch.cat(bx_list, dim=1).reshape(batch, self.num_masked_anchors * H * W, 1)
             / W
         )
         by = (
-            torch.cat(by_list, dim=1).view(batch, self.num_masked_anchors * H * W, 1)
+            torch.cat(by_list, dim=1).reshape(batch, self.num_masked_anchors * H * W, 1)
             / H
         )
         bw = (
-            torch.cat(bw_list, dim=1).view(batch, self.num_masked_anchors * H * W, 1)
+            torch.cat(bw_list, dim=1).reshape(batch, self.num_masked_anchors * H * W, 1)
             / W
         )
         bh = (
-            torch.cat(bh_list, dim=1).view(batch, self.num_masked_anchors * H * W, 1)
+            torch.cat(bh_list, dim=1).reshape(batch, self.num_masked_anchors * H * W, 1)
             / H
         )
 

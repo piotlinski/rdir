@@ -393,11 +393,14 @@ class DIR(pl.LightningModule):
 
             self.evaluate(stage=stage)
 
+            print(batch_idx, stage)
             if batch_idx == 0 and self.logger is not None:
+                to_log = {}
                 with torch.no_grad():
-                    self.visualize_inference(stage=stage)
-                    self.visualize_objects(stage=stage)
-                    self.log_latents(stage=stage)
+                    to_log.update(self.visualize_inference(stage=stage))
+                    to_log.update(self.visualize_objects(stage=stage))
+                    to_log.update(self.log_latents(stage=stage))
+                self.logger.experiment.log(to_log, step=self.global_step)
         except ValueError:
             loss = torch.tensor(float("NaN"))
 
@@ -411,7 +414,7 @@ class DIR(pl.LightningModule):
         """Step for validation."""
         return self.common_run_step(batch, batch_idx, stage="val")
 
-    def visualize_inference(self, stage: str):
+    def visualize_inference(self, stage: str) -> Dict[str, Any]:
         """Visualize model inference."""
         image = self._store["images"][[0]]
         boxes = self._store["boxes"][[0]]
@@ -465,16 +468,13 @@ class DIR(pl.LightningModule):
             "gt": {"box_data": gt_box_data, "class_labels": {1: "object"}},
             "pred": {"box_data": pred_box_data, "class_labels": {1: "object"}},
         }
-        self.logger.experiment.log(
-            {
-                f"{stage}_inference": wandb.Image(
-                    v_inference, boxes=v_boxes, caption="model inference"
-                )
-            },
-            step=self.global_step,
-        )
+        return {
+            f"{stage}_inference": wandb.Image(
+                v_inference, boxes=v_boxes, caption="model inference"
+            )
+        }
 
-    def visualize_objects(self, stage: str):
+    def visualize_objects(self, stage: str) -> Dict[str, Any]:
         """Visualize reconstructed objects."""
         n_objects = 10
         z_present = self._store["z_present"][[0]]
@@ -496,16 +496,13 @@ class DIR(pl.LightningModule):
                 (obj.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
             )
             v_objects.paste(v_object, (idx * (v_object.width + 1), 0))
-        self.logger.experiment.log(
-            {
-                f"{stage}_objects": wandb.Image(
-                    v_objects, caption="per-object reconstructions"
-                )
-            },
-            step=self.global_step,
-        )
+        return {
+            f"{stage}_objects": wandb.Image(
+                v_objects, caption="per-object reconstructions"
+            )
+        }
 
-    def log_latents(self, stage: str):
+    def log_latents(self, stage: str) -> Dict[str, Any]:
         """Log latents to wandb."""
         latents_names = [
             "z_where",
@@ -515,13 +512,12 @@ class DIR(pl.LightningModule):
             "z_depth_loc",
             "z_depth_scale",
         ]
+        latents = {}
         for latent_name in latents_names:
             if (latent := self._store.get(latent_name)) is None:
                 continue
-            self.logger.experiment.log(
-                {f"{stage}_{latent_name}": wandb.Histogram(latent.cpu())},
-                step=self.global_step,
-            )
+            latents[f"{stage}_{latent_name}"] = wandb.Histogram(latent.cpu())
+        return latents
 
     def evaluate(self, stage: str):
         """Perform model evaluation."""

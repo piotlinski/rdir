@@ -1,3 +1,9 @@
+ifdef gpus
+	GPUS := "device=$(gpus)"
+else
+	GPUS := all
+endif
+
 help: ## Show this help
 	@grep -E '^[.a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
@@ -14,4 +20,4 @@ build.rdir:  ## Build dir docker image
 	docker build --rm --build-arg WANDB_API_KEY=$(WANDB_API_KEY) -f docker/rdir.dockerfile -t $(RDIR_DOCKER_IMAGE) .
 
 shell.dir:  ## Run shell in dir docker container
-	docker run -it --rm --ipc=host -v $(PWD):/workspace -e LOCAL_USER_ID=$(LOCAL_USER_ID) -e LOCAL_GROUP_ID=$(LOCAL_GROUP_ID) --gpus all $(RDIR_DOCKER_IMAGE)
+	docker run -it --rm --ipc=host -v $(PWD):/workspace -e LOCAL_USER_ID=$(LOCAL_USER_ID) -e LOCAL_GROUP_ID=$(LOCAL_GROUP_ID) --gpus '$(GPUS)' $(RDIR_DOCKER_IMAGE)

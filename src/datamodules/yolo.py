@@ -74,9 +74,7 @@ class YOLODataset(Dataset):
         img_path = self.files[idx]
         ann_path = str(Path(img_path).with_suffix(".txt"))
 
-        img = cv2.imread(str(self.dataset_dir / img_path))
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-
+        img = self._load_img(str(self.dataset_dir / img_path))
         xywh = self._load_ann(self.dataset_dir / ann_path)
 
         if self.is_train:
@@ -100,8 +98,7 @@ class YOLODataset(Dataset):
                     mosaic_img_path = random.choice(self.files)
                     mosaic_ann_path = str(Path(mosaic_img_path).with_suffix(".txt"))
 
-                    mosaic_img = cv2.imread(str(self.dataset_dir / mosaic_img_path))
-                    mosaic_img = cv2.cvtColor(mosaic_img, cv2.COLOR_BGR2RGB)
+                    mosaic_img = self._load_img(str(self.dataset_dir / mosaic_img_path))
                     mosaic_xywh = self._load_ann(self.dataset_dir / mosaic_ann_path)
 
                     img = mosaic_img
@@ -210,6 +207,12 @@ class YOLODataset(Dataset):
         ]
 
         return img.astype(np.float32), boxes.astype(np.float32)
+
+    @staticmethod
+    def _load_img(img_path: Path) -> np.ndarray:
+        """Load image from file."""
+        img = cv2.imread(str(img_path))
+        return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     @staticmethod
     def _load_ann(ann_path: Path) -> np.ndarray:

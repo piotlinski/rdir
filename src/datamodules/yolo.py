@@ -4,7 +4,7 @@ import shutil
 import tarfile
 from ast import literal_eval
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import cv2
 import numpy as np
@@ -66,140 +66,27 @@ class YOLODataset(Dataset):
         with self.dataset_dir.joinpath(files_path).open("r") as fp:
             self.files = [file.replace("data/", "").strip() for file in fp]
 
+        self._augmentation: Dict[str, Any] = {}
+
     def __len__(self):
         """Dataset length."""
         return len(self.files)
 
-    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        img_path = self.files[idx]
-        ann_path = str(Path(img_path).with_suffix(".txt"))
-
-        img = self._load_img(str(self.dataset_dir / img_path))
-        xywh = self._load_ann(self.dataset_dir / ann_path)
-
-        if self.is_train:
+    def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Get single image from the dataset."""
+        if not self.is_train:
+            img, xywh = self.get_original(idx)
+            img = cv2.resize(img, (self.width, self.height))
+        else:
             mosaic = self.mosaic
             if random.randint(0, 1):
                 mosaic = False
 
-            min_offset = 0.2
-            cut_x = random.randint(
-                int(self.width * min_offset), int(self.width * (1 - min_offset))
-            )
-            cut_y = random.randint(
-                int(self.height * min_offset), int(self.height * (1 - min_offset))
-            )
-
-            out_img = np.zeros((self.height, self.width, 3))
-            out_x1y1x2y2 = []
-
-            for i in range(mosaic * self.n_mosaic + 1):
-                if i != 0:
-                    mosaic_img_path = random.choice(self.files)
-                    mosaic_ann_path = str(Path(mosaic_img_path).with_suffix(".txt"))
-
-                    mosaic_img = self._load_img(str(self.dataset_dir / mosaic_img_path))
-                    mosaic_xywh = self._load_ann(self.dataset_dir / mosaic_ann_path)
-
-                    img = mosaic_img
-                    xywh = mosaic_xywh
-
-                height, width, _ = img.shape
-                target_height, target_width = (
-                    np.array([self.height, self.width]) * self.jitter
-                ).astype(int)
-                x1y1x2y2 = self.xywh_to_x1y1x2y2(xywh, (height, width))
-
-                hue = rand_uniform_strong(-self.hue, self.hue)
-                saturation = rand_scale(self.saturation)
-                exposure = rand_scale(self.exposure)
-
-                left = random.randint(-target_width, target_width)
-                right = random.randint(-target_width, target_width)
-                top = random.randint(-target_height, target_height)
-                bottom = random.randint(-target_height, target_height)
-
-                swidth = width - left - right
-                sheight = height - top - bottom
-
-                x1y1x2y2, min_h_w = fill_truth_detection(
-                    x1y1x2y2,
-                    self.max_boxes,
-                    self.classes,
-                    0,
-                    left,
-                    top,
-                    swidth,
-                    sheight,
-                    self.width,
-                    self.height,
-                )
-
-                augmented = image_data_augmentation(
-                    img,
-                    self.width,
-                    self.height,
-                    left,
-                    top,
-                    swidth,
-                    sheight,
-                    0,
-                    hue,
-                    saturation,
-                    exposure,
-                    0,
-                    0,
-                    x1y1x2y2,
-                )
-
-                if mosaic:
-                    left_shift = int(
-                        min(cut_x, max(0, (-int(left) * self.width / swidth)))
-                    )
-                    top_shift = int(
-                        min(cut_y, max(0, (-int(top) * self.height / sheight)))
-                    )
-
-                    right_shift = int(
-                        min(
-                            (self.width - cut_x),
-                            max(0, (-int(right) * self.width / swidth)),
-                        )
-                    )
-                    bot_shift = int(
-                        min(
-                            self.height - cut_y,
-                            max(0, (-int(bottom) * self.height / sheight)),
-                        )
-                    )
-
-                    out_img, x1y1x2y2 = blend_truth_mosaic(
-                        out_img,
-                        augmented,
-                        x1y1x2y2.copy(),
-                        self.width,
-                        self.height,
-                        cut_x,
-                        cut_y,
-                        i,
-                        left_shift,
-                        right_shift,
-                        top_shift,
-                        bot_shift,
-                    )
-                    out_x1y1x2y2.append(x1y1x2y2)
-
-                else:
-                    out_img = augmented
-                    out_x1y1x2y2 = x1y1x2y2
+            img, x1y1x2y2 = self.get_augmented(idx, reuse=False)
             if mosaic:
-                out_x1y1x2y2 = np.concatenate(out_x1y1x2y2, axis=0)
+                img, x1y1x2y2 = self.get_mosaic(img, x1y1x2y2)
 
-            img = out_img
-            xywh = self.x1y1x2y2_to_xywh(out_x1y1x2y2, (self.height, self.width))
-
-        else:
-            img = cv2.resize(img, (self.width, self.height))
+            xywh = self.x1y1x2y2_to_xywh(x1y1x2y2, (self.height, self.width))
 
         boxes = np.zeros([self.max_boxes, 5])
         boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
@@ -225,6 +112,170 @@ class YOLODataset(Dataset):
                     class_id, x, y, w, h = map(literal_eval, contents)
                     objs.append([x, y, w, h, class_id])
         return np.array(objs)
+
+    def _get_augmentation_params(self, reuse: bool = False) -> Dict[str, Any]:
+        """Draw or reuse augmentation parameters."""
+        min_offset = 0.2
+        if not reuse:
+            target_height, target_width = (
+                np.array([self.height, self.width]) * self.jitter
+            ).astype(int)
+            self._augmentation = dict(
+                hue=rand_uniform_strong(-self.hue, self.hue),
+                saturation=rand_scale(self.saturation),
+                exposure=rand_scale(self.exposure),
+                left=random.randint(-target_width, target_width),
+                right=random.randint(-target_width, target_width),
+                top=random.randint(-target_height, target_height),
+                bottom=random.randint(-target_height, target_height),
+                cut_x=random.randint(
+                    int(self.width * min_offset), int(self.width * (1 - min_offset))
+                ),
+                cut_y=random.randint(
+                    int(self.height * min_offset), int(self.height * (1 - min_offset))
+                ),
+            )
+        return self._augmentation
+
+    def _fill_truth_detection(
+        self,
+        x1y1x2y2: np.ndarray,
+        width: int,
+        height: int,
+        left: int,
+        right: int,
+        top: int,
+        bottom: int,
+        **kwargs,
+    ) -> np.ndarray:
+        """Wrapper for fill_truth_detection."""
+        x1y1x2y2, _ = fill_truth_detection(
+            bboxes=x1y1x2y2,
+            dx=left,
+            dy=top,
+            sx=width - left - right,
+            sy=height - top - bottom,
+            num_boxes=self.max_boxes,
+            classes=self.classes,
+            net_w=self.width,
+            net_h=self.height,
+            flip=0,
+        )
+        return x1y1x2y2
+
+    def _image_data_augmentation(
+        self,
+        img: np.ndarray,
+        x1y1x2y2: np.ndarray,
+        width: int,
+        height: int,
+        left: int,
+        right: int,
+        top: int,
+        bottom: int,
+        hue: float,
+        saturation: float,
+        exposure: float,
+        **kwargs,
+    ) -> np.ndarray:
+        """Wrapper for image_data_augmentation."""
+        return image_data_augmentation(
+            mat=img,
+            pleft=left,
+            ptop=top,
+            swidth=width - left - right,
+            sheight=height - top - bottom,
+            dhue=hue,
+            dsat=saturation,
+            dexp=exposure,
+            truth=x1y1x2y2,
+            w=self.width,
+            h=self.height,
+            flip=0,
+            gaussian_noise=0,
+            blur=0,
+        )
+
+    def _blend_truth_mosaic(
+        self, out_img: np.ndarray, img: np.ndarray, x1y1x2y2: np.ndarray, i: int
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Wrapper for blend_truth_mosaic."""
+        height, width, _ = img.shape
+        left = self._augmentation["left"]
+        right = self._augmentation["right"]
+        swidth = width - left - right
+        top = self._augmentation["top"]
+        bottom = self._augmentation["bottom"]
+        sheight = height - top - bottom
+        cut_x = self._augmentation["cut_x"]
+        cut_y = self._augmentation["cut_y"]
+
+        left_shift = int(min(cut_x, max(0, (-int(left) * self.width / swidth))))
+        top_shift = int(min(cut_y, max(0, (-int(top) * self.height / sheight))))
+        right_shift = int(
+            min((self.width - cut_x), max(0, (-int(right) * self.width / swidth)))
+        )
+        bot_shift = int(
+            min(self.height - cut_y, max(0, (-int(bottom) * self.height / sheight)))
+        )
+
+        return blend_truth_mosaic(
+            out_img=out_img,
+            img=img,
+            bboxes=x1y1x2y2.copy(),
+            i_mixup=i,
+            w=self.width,
+            h=self.height,
+            cut_x=cut_x,
+            cut_y=cut_y,
+            left_shift=left_shift,
+            right_shift=right_shift,
+            top_shift=top_shift,
+            bot_shift=bot_shift,
+        )
+
+    def get_original(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+        """Get original image and annotation."""
+        img_path = self.files[idx]
+        ann_path = str(Path(img_path).with_suffix(".txt"))
+
+        img = self._load_img(self.dataset_dir / img_path)
+        xywh = self._load_ann(self.dataset_dir / ann_path)
+
+        return img, xywh
+
+    def get_augmented(
+        self, idx: int, reuse: bool = False
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Get single augmented image."""
+        img, xywh = self.get_original(idx)
+
+        height, width, _ = img.shape
+        x1y1x2y2 = self.xywh_to_x1y1x2y2(xywh, (height, width))
+
+        kwargs = dict(width=width, height=height)
+        kwargs.update(self._get_augmentation_params(reuse=reuse))
+
+        x1y1x2y2 = self._fill_truth_detection(x1y1x2y2, **kwargs)
+        img = self._image_data_augmentation(img, x1y1x2y2, **kwargs)
+
+        return img, x1y1x2y2
+
+    def get_mosaic(
+        self, img: np.ndarray, x1y1x2y2: np.ndarray
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Get single augmented mosaic."""
+        out_img = np.zeros((self.height, self.width, 3))
+        out_x1y1x2y2 = []
+
+        for i in range(self.n_mosaic):
+            idx = random.randrange(len(self.files))
+            img, x1y1x2y2 = self.get_augmented(idx, reuse=True)
+
+            out_img, x1y1x2y2 = self._blend_truth_mosaic(out_img, img, x1y1x2y2, i)
+            out_x1y1x2y2.append(x1y1x2y2)
+
+        return out_img, np.concatenate(out_x1y1x2y2, axis=0)
 
     @staticmethod
     def xywh_to_x1y1x2y2(

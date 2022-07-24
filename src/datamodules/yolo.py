@@ -74,15 +74,16 @@ class YOLODataset(Dataset):
 
     def __getitem__(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
         """Get single image from the dataset."""
+        img_path = self.files[idx]
         if not self.is_train:
-            img, xywh = self.get_original(idx)
+            img, xywh = self.get_original(img_path)
             img = cv2.resize(img, (self.width, self.height))
         else:
             mosaic = self.mosaic
             if random.randint(0, 1):
                 mosaic = False
 
-            img, x1y1x2y2 = self.get_augmented(idx, reuse=False)
+            img, x1y1x2y2 = self.get_augmented(img_path, reuse=False)
             if mosaic:
                 img, x1y1x2y2 = self.get_mosaic(img, x1y1x2y2)
 
@@ -234,9 +235,8 @@ class YOLODataset(Dataset):
             bot_shift=bot_shift,
         )
 
-    def get_original(self, idx: int) -> Tuple[np.ndarray, np.ndarray]:
+    def get_original(self, img_path: str) -> Tuple[np.ndarray, np.ndarray]:
         """Get original image and annotation."""
-        img_path = self.files[idx]
         ann_path = str(Path(img_path).with_suffix(".txt"))
 
         img = self._load_img(self.dataset_dir / img_path)
@@ -245,10 +245,10 @@ class YOLODataset(Dataset):
         return img, xywh
 
     def get_augmented(
-        self, idx: int, reuse: bool = False
+        self, img_path: str, reuse: bool = False
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Get single augmented image."""
-        img, xywh = self.get_original(idx)
+        img, xywh = self.get_original(img_path)
 
         height, width, _ = img.shape
         x1y1x2y2 = self.xywh_to_x1y1x2y2(xywh, (height, width))
@@ -270,7 +270,7 @@ class YOLODataset(Dataset):
 
         for i in range(self.n_mosaic):
             idx = random.randrange(len(self.files))
-            img, x1y1x2y2 = self.get_augmented(idx, reuse=True)
+            img, x1y1x2y2 = self.get_augmented(self.files[idx], reuse=True)
 
             out_img, x1y1x2y2 = self._blend_truth_mosaic(out_img, img, x1y1x2y2, i)
             out_x1y1x2y2.append(x1y1x2y2)

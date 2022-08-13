@@ -1,11 +1,22 @@
 """DIR sequential DataModule."""
+import shutil
+import tarfile
 from itertools import groupby
-from typing import List, Tuple
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 import cv2
 import numpy as np
+import pytorch_lightning as pl
+import torch
+from torch.utils.data.dataloader import DataLoader
+from torch.utils.data.dataset import Dataset
 
 from src.datamodules.yolo import YOLODataset
+from src.utils import get_logger
+from src.vendor.yolov4.train import collate
+
+logger = get_logger(__name__)
 
 
 class RDIRDataset(YOLODataset):
@@ -41,6 +52,112 @@ class RDIRDataset(YOLODataset):
             seq_boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
                 : min(xywh.shape[0], self.max_boxes)
             ]
-            images.append(img)
-            boxes.append(seq_boxes)
+            images.append(img.astype(np.float32))
+            boxes.append(seq_boxes.astype(np.float32))
         return np.stack(images, axis=0), np.stack(boxes, axis=0)
+
+
+def seq_collate(batch):
+    """Collate function for sequential dataset."""
+    images = []
+    bboxes = []
+    for images_seq, bboxes_seq in batch:
+        images_seq = images_seq.transpose(0, 3, 1, 2)
+        images_seq = torch.from_numpy(images_seq).div(255.0)
+        bboxes_seq = torch.from_numpy(bboxes_seq)
+        images.append(images_seq)
+        bboxes.append(bboxes_seq)
+    return images, bboxes
+
+
+class RDIRDataModule(pl.LightningDataModule):
+    """Sequential Data Module for training DIR model."""
+
+    def __init__(
+        self,
+        data_dir: str,
+        config_path: str,
+        batch_size: int,
+        num_workers: int = 8,
+        image_size: Optional[int] = 416,
+        pin_memory: bool = True,
+    ):
+        """
+        :param data_dir: directory with dataset
+        :param config_path: path to yolov4 config file
+        :param batch_size: batch_size used in Data Module
+        :param num_workers: number of workers used for loading data
+        :param image_size: model input image size
+        :param pin_memory: pin memory while training
+        """
+        super().__init__()
+
+        self.data_dir = data_dir
+        self.config_path = config_path
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.image_size = image_size
+        self.pin_memory = pin_memory
+
+        self.train_dataset: Optional[Dataset] = None
+        self.val_dataset: Optional[Dataset] = None
+
+        self.save_hyperparameters(logger=False)
+
+    def prepare_data(self):
+        """Decompress data if necessary."""
+        data_path = Path(self.data_dir)
+        files = set(str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*"))
+
+        with tarfile.open(f"{self.data_dir}.tar.gz", "r:gz") as trf:
+            archive_files = set(f for f in trf.getnames())
+            archive_files.remove(".")
+
+            if archive_files != files:
+                logger.info("Dataset files mismatch, extracting to %s", self.data_dir)
+                shutil.rmtree(data_path)
+                data_path.mkdir()
+
+                trf.extractall(self.data_dir)
+
+    def setup(self, stage: Optional[str] = None):
+        """Setup Data Module."""
+        if not self.train_dataset and not self.val_dataset:
+            self.train_dataset = RDIRDataset(
+                dataset_dir=self.data_dir,
+                config_path=self.config_path,
+                files_path="train.txt",
+                is_train=True,
+                image_size=self.image_size,
+            )
+            self.val_dataset = RDIRDataset(
+                dataset_dir=self.data_dir,
+                config_path=self.config_path,
+                files_path="test.txt",
+                is_train=False,
+                image_size=self.image_size,
+            )
+
+    def train_dataloader(self) -> DataLoader:
+        """Prepare train DataLoader."""
+        return DataLoader(
+            self.train_dataset,
+            batch_size=self.batch_size,
+            shuffle=True,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            drop_last=True,
+            collate_fn=seq_collate,
+        )
+
+    def val_dataloader(self) -> DataLoader:
+        """Prepare val DataLoader."""
+        return DataLoader(
+            self.val_dataset,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            pin_memory=self.pin_memory,
+            drop_last=False,
+            collate_fn=seq_collate,
+        )

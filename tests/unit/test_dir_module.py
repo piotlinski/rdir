@@ -84,7 +84,7 @@ def test_dir_encoder_forward(
 
     latents = model.encoder_forward(inputs)
 
-    z_where, z_present, z_what, z_depth = latents
+    z_where, z_present, (z_what, z_what_scale), (z_depth, z_what_scale) = latents
     n_objects = z_where.shape[1]
     assert z_where.shape == (batch_size, n_objects, 4)
     assert z_where.dtype == torch.float

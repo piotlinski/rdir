@@ -1,5 +1,7 @@
 """DIR model definition."""
-from typing import Any, Dict, Tuple
+from functools import partial
+from turtle import Shape
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import PIL.Image as PILImage
@@ -10,11 +12,13 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.utils.rnn as rnn
 import wandb
 from torchmetrics import MeanSquaredError
 
 from src.models.components.decode.decoder import DIRRepresentation
 from src.models.components.decode.where import WhereTransformer
+from src.models.components.encode.encoder import DIRLatents
 
 dist.enable_validation(False)
 
@@ -123,14 +127,18 @@ class DIR(pl.LightningModule):
         """Threshold z_present to binary."""
         return torch.where(z_present > self.z_present_threshold, 1.0, 0.0)
 
-    def encoder_forward(self, inputs: torch.Tensor) -> DIRRepresentation:
+    def encoder_forward(self, inputs: torch.Tensor) -> DIRLatents:
         """Perform forward pass through encoder network."""
+        return self.encoder(inputs)
+
+    def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
+        """Sample latents to create representation."""
         (
             z_where,
             z_present,
             (z_what, z_what_scale),
             (z_depth, z_depth_scale),
-        ) = self.encoder(inputs)
+        ) = latents
         self._store["z_where"] = z_where.detach()
         self._store["z_what_loc"] = z_what.detach()
         if self.is_what_probabilistic:  # else use loc
@@ -163,7 +171,8 @@ class DIR(pl.LightningModule):
     def forward(self, images: torch.Tensor) -> torch.Tensor:
         """Pass data through the autoencoder."""
         latents = self.encoder_forward(images)
-        return self.decoder_forward(latents)
+        representation = self.sample_latents(latents)
+        return self.decoder_forward(representation)
 
     def transform_objects(
         self, images: torch.Tensor, z_present: torch.Tensor, objects_where: torch.Tensor
@@ -547,3 +556,70 @@ class DIR(pl.LightningModule):
         }
 
         return config
+
+
+class DIRSequential(DIR):
+    """Sequential DIR."""
+
+    def __init__(self, seq_encoder: nn.Module, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.seq_encoder = seq_encoder
+
+    @staticmethod
+    def flatten_seq_dim(x: torch.Tensor) -> torch.Tensor:
+        """Flatten sequence dimension."""
+        return x.view(x.shape[0] * x.shape[1], *x.shape[2:])
+
+    @staticmethod
+    def add_seq_dim(x: torch.Tensor, seq_length: int) -> torch.Tensor:
+        """Add sequence dimension to tensor."""
+        batch_size, *shape = x.shape
+        return x.view(batch_size // seq_length, seq_length, *shape)
+
+    def encoder_forward(self, inputs: torch.Tensor) -> DIRLatents:
+        """Perform forward pass through encoder network."""
+        (
+            z_where,
+            z_present,
+            (z_what, z_what_scale),
+            (z_depth, z_depth_scale),
+        ) = super().encoder_forward(self.flatten_seq_dim(inputs))
+
+        unsqueeze = partial(self.add_seq_dim, seq_length=inputs.shape[1])
+        latents = (
+            unsqueeze(z_where),
+            unsqueeze(z_present),
+            (unsqueeze(z_what), unsqueeze(z_what_scale)),
+            (unsqueeze(z_depth), unsqueeze(z_depth_scale)),
+        )
+
+        return self.seq_encoder(latents)
+
+    def decoder_forward(self, latents: DIRRepresentation) -> torch.Tensor:
+        """Perform forward pass through decoder network."""
+        seq_length = latents[0].shape[1]
+        decoded = super().decoder_forward(
+            tuple(self.flatten_seq_dim(x)[0] for x in latents)
+        )
+        return self.add_seq_dim(decoded, seq_length)
+
+    def model(self, x: torch.Tensor):
+        """Pyro sequential model."""
+        super().model(self.flatten_seq_dim(x))
+
+    def guide(self, x: torch.Tensor):
+        """Pyro sequential guide."""
+        return super().guide(self.flatten_seq_dim(x))
+
+    def common_run_step(
+        self,
+        batch: Tuple[List[torch.Tensor], List[torch.Tensor]],
+        batch_idx: int,
+        stage: str,
+    ):
+        """Run step including packing sequence."""
+        packed = (
+            rnn.pack_sequence(batch[0], enforce_sorted=False),
+            rnn.pack_sequence(batch[1], enforce_sorted=False),
+        )
+        return super().common_run_step(packed, batch_idx, stage)

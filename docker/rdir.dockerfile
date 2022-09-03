@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:22.06-py3
+FROM nvcr.io/nvidia/pytorch:22.08-py3
 
 ARG WANDB_API_KEY
 

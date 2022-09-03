@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/cuda:11.4.2-cudnn8-devel-ubuntu20.04
+FROM nvcr.io/nvidia/cuda:11.7.1-cudnn8-devel-ubuntu20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
@@ -28,9 +28,10 @@ RUN apt-get update \
     libqt5opengl5-dev libtesseract-dev libsuitesparse-dev libeigen3-dev \
     && rm -rf /var/lib/apt/lists/*
 
-RUN cd /tmp && git clone https://ceres-solver.googlesource.com/ceres-solver \
-    && cd ceres-solver && mkdir build && cd build \
-    && cmake .. && make -j $(nproc) && make install && cd .. && rm -rf /tmp/ceres-solver
+RUN cd /tmp && wget http://ceres-solver.org/ceres-solver-2.1.0.tar.gz && tar zxf ceres-solver-2.1.0.tar.gz \
+    && mkdir ceres-bin && cd ceres-bin \
+    && cmake ../ceres-solver-2.1.0 && make -j $(nproc) && make install \
+    && cd .. && rm -rf /tmp/ceres-solver-2.1.0 /tmp/ceres-bin
 
 # entrypoint
 RUN apt-get update \

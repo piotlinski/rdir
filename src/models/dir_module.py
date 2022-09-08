@@ -1,7 +1,7 @@
 """DIR model definition."""
 from functools import partial
 from turtle import Shape
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Type
 
 import numpy as np
 import PIL.Image as PILImage
@@ -16,6 +16,7 @@ import torch.nn.utils.rnn as rnn
 import wandb
 from torchmetrics import MeanSquaredError
 
+from models.components.encode.seq import SeqEncoder
 from src.models.components.decode.decoder import DIRRepresentation
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import DIRLatents
@@ -561,9 +562,24 @@ class DIR(pl.LightningModule):
 class DIRSequential(DIR):
     """Sequential DIR."""
 
-    def __init__(self, seq_encoder: nn.Module, *args, **kwargs):
+    def __init__(
+        self,
+        seq_rnn_cls: Type[nn.RNNBase] = nn.GRU,
+        seq_n_layers: int = 1,
+        seq_bidirectional: bool = False,
+        *args,
+        **kwargs,
+    ):
         super().__init__(*args, **kwargs)
-        self.seq_encoder = seq_encoder
+        self.seq_encoder = SeqEncoder(
+            n_objects=sum(self.encoder.head.num_anchors.values()),
+            z_what_size=self.z_what_size,
+            what_probabilistic=self.is_what_probabilistic,
+            depth_probabilistic=self.is_depth_probabilistic,
+            rnn_cls=seq_rnn_cls,
+            num_layers=seq_n_layers,
+            bidirectional=seq_bidirectional,
+        )
 
     @staticmethod
     def flatten_seq_dim(x: torch.Tensor) -> torch.Tensor:

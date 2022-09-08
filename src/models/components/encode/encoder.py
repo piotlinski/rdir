@@ -69,7 +69,7 @@ class Encoder(nn.Module):
         self.what_enc = WhatEncoder(
             latent_dim=z_what_size,
             num_hidden=z_what_hidden,
-            anchors=self.head.num_anchors,
+            anchors=self.head,
             out_channels=self.neck.out_channels,
             scale_const=z_what_scale_const,
         ).requires_grad_(train_what)

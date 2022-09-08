@@ -1,8 +1,4 @@
-_target_: src.datamodules.yolo.YOLODataModule
+defaults:
+  - default.yaml
 
-data_dir: ${darknet.training.data_dir}
-config_path: ${darknet.config}
-batch_size: 2
-num_workers: 0
-image_size: ${darknet.training.size}
-pin_memory: true
+_target_: src.datamodules.yolo.YOLODataModule

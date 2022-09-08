@@ -1,6 +1,5 @@
 """DIR model definition."""
 from functools import partial
-from turtle import Shape
 from typing import Any, Dict, List, Tuple, Type
 
 import numpy as np
@@ -16,10 +15,10 @@ import torch.nn.utils.rnn as rnn
 import wandb
 from torchmetrics import MeanSquaredError
 
-from models.components.encode.seq import SeqEncoder
 from src.models.components.decode.decoder import DIRRepresentation
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import DIRLatents
+from src.models.components.encode.seq import SeqEncoder
 
 dist.enable_validation(False)
 

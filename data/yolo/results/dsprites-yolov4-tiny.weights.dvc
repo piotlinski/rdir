@@ -1,0 +1,4 @@
+outs:
+- md5: b73661aae9cdc7cb64a4e0813b363b25
+  size: 23733836
+  path: dsprites-yolov4-tiny.weights

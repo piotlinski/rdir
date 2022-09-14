@@ -1,0 +1,4 @@
+outs:
+- md5: f3d7f0aa135385132ec3f48537877723
+  size: 12130
+  path: dsprites-yolov4.cfg

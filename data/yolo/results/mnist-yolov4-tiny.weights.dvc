@@ -1,0 +1,4 @@
+outs:
+- md5: 60adb66055190f31d07d5335cdc45b59
+  size: 23604476
+  path: mnist-yolov4-tiny.weights

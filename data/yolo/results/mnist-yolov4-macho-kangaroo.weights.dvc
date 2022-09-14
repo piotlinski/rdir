@@ -1,4 +1,0 @@
-outs:
-- md5: b3a5008cb36e0ed3469de7f587e6c516
-  size: 256209840
-  path: mnist-yolov4-macho-kangaroo.weights

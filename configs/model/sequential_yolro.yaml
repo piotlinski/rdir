@@ -1,7 +1,6 @@
-defaults:
-  - default.yaml
+_target_: src.models.dir_sequential_module.DIRSequential
 
-_target_: src.models.dir_module.DIRSequential
+learning_rate: 1e-4
 
 seq_rnn_cls:
   _target_: torch.nn.GRU

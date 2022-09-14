@@ -1,6 +1,5 @@
 """DIR model definition."""
-from functools import partial
-from typing import Any, Dict, List, Tuple, Type
+from typing import Any, Dict, Tuple
 
 import numpy as np
 import PIL.Image as PILImage
@@ -11,14 +10,12 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.nn.utils.rnn as rnn
 import wandb
 from torchmetrics import MeanSquaredError
 
 from src.models.components.decode.decoder import DIRRepresentation
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import DIRLatents
-from src.models.components.encode.seq import SeqEncoder
 
 dist.enable_validation(False)
 
@@ -103,20 +100,6 @@ class DIR(pl.LightningModule):
 
         self.mse = {"train": self.train_mse, "val": self.val_mse}
         self.objects_mse = {"train": self.train_obj_mse, "val": self.val_obj_mse}
-
-        self.n_objects = self._infer_n_objects()
-
-    def _infer_n_objects(self) -> int:
-        """Infer number of returned objects."""
-        with torch.no_grad():
-            inputs = torch.zeros(1, 3, self.image_size, self.image_size)
-
-            features = self.encoder.backbone(inputs)
-            intermediates = self.encoder.neck(features)
-
-            _, confs = self.encoder.head(intermediates)
-
-            return confs.shape[1]
 
     @property
     def is_what_probabilistic(self):
@@ -569,85 +552,3 @@ class DIR(pl.LightningModule):
         }
 
         return config
-
-
-class DIRSequential(DIR):
-    """Sequential DIR."""
-
-    def __init__(
-        self,
-        seq_rnn_cls: Type[nn.RNNBase] = nn.GRU,
-        seq_n_layers: int = 1,
-        seq_bidirectional: bool = False,
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.seq_encoder = SeqEncoder(
-            n_objects=self.n_objects,
-            z_what_size=self.z_what_size,
-            what_probabilistic=self.is_what_probabilistic,
-            depth_probabilistic=self.is_depth_probabilistic,
-            rnn_cls=seq_rnn_cls,
-            num_layers=seq_n_layers,
-            bidirectional=seq_bidirectional,
-        )
-
-    @staticmethod
-    def flatten_seq_dim(x: torch.Tensor) -> torch.Tensor:
-        """Flatten sequence dimension."""
-        return x.view(x.shape[0] * x.shape[1], *x.shape[2:])
-
-    @staticmethod
-    def add_seq_dim(x: torch.Tensor, seq_length: int) -> torch.Tensor:
-        """Add sequence dimension to tensor."""
-        batch_size, *shape = x.shape
-        return x.view(batch_size // seq_length, seq_length, *shape)
-
-    def encoder_forward(self, inputs: torch.Tensor) -> DIRLatents:
-        """Perform forward pass through encoder network."""
-        (
-            z_where,
-            z_present,
-            (z_what, z_what_scale),
-            (z_depth, z_depth_scale),
-        ) = super().encoder_forward(self.flatten_seq_dim(inputs))
-
-        unsqueeze = partial(self.add_seq_dim, seq_length=inputs.shape[1])
-        latents = (
-            unsqueeze(z_where),
-            unsqueeze(z_present),
-            (unsqueeze(z_what), unsqueeze(z_what_scale)),
-            (unsqueeze(z_depth), unsqueeze(z_depth_scale)),
-        )
-
-        return self.seq_encoder(latents)
-
-    def decoder_forward(self, latents: DIRRepresentation) -> torch.Tensor:
-        """Perform forward pass through decoder network."""
-        seq_length = latents[0].shape[1]
-        decoded = super().decoder_forward(
-            tuple(self.flatten_seq_dim(x)[0] for x in latents)
-        )
-        return self.add_seq_dim(decoded, seq_length)
-
-    def model(self, x: torch.Tensor):
-        """Pyro sequential model."""
-        super().model(self.flatten_seq_dim(x))
-
-    def guide(self, x: torch.Tensor):
-        """Pyro sequential guide."""
-        return super().guide(self.flatten_seq_dim(x))
-
-    def common_run_step(
-        self,
-        batch: Tuple[List[torch.Tensor], List[torch.Tensor]],
-        batch_idx: int,
-        stage: str,
-    ):
-        """Run step including packing sequence."""
-        packed = (
-            rnn.pad_sequence(batch[0], batch_first=True).contiguous(),
-            rnn.pad_sequence(batch[1], batch_first=True).contiguous(),
-        )
-        return super().common_run_step(packed, batch_idx, stage)

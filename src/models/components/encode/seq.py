@@ -56,7 +56,7 @@ class SeqEncoder(nn.Module):
     def _flat_forward(x: torch.Tensor, rnn: nn.RNNBase) -> torch.Tensor:
         """Flatten input and forward through recurrent network."""
         original = x.shape
-        x = x.view(x.shape[0] * x.shape[1], -1)
+        x = x.view(x.shape[0], x.shape[1], -1)
         x, _ = rnn(x)
         x = x.view(*original)
         return x

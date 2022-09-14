@@ -3,6 +3,8 @@ defaults:
 
 _target_: src.models.dir_module.DIRSequential
 
-seq_rnn_cls: nn.GRU
+seq_rnn_cls:
+  _target_: torch.nn.GRU
+  _partial_: True
 seq_n_layers: 1
 seq_bidirectional: False

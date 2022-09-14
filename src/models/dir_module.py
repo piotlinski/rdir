@@ -104,6 +104,20 @@ class DIR(pl.LightningModule):
         self.mse = {"train": self.train_mse, "val": self.val_mse}
         self.objects_mse = {"train": self.train_obj_mse, "val": self.val_obj_mse}
 
+        self.n_objects = self._infer_n_objects()
+
+    def _infer_n_objects(self) -> int:
+        """Infer number of returned objects."""
+        with torch.no_grad():
+            inputs = torch.zeros(1, 3, self.image_size, self.image_size)
+
+            features = self.encoder.backbone(inputs)
+            intermediates = self.encoder.neck(features)
+
+            _, confs = self.encoder.head(intermediates)
+
+            return confs.shape[1]
+
     @property
     def is_what_probabilistic(self):
         """Determines if z_what encoder is probabilistic."""
@@ -415,7 +429,6 @@ class DIR(pl.LightningModule):
         """Step for validation."""
         loss = self.common_run_step(batch, batch_idx, stage="val")
         if batch_idx == 0 and self.logger is not None:
-            to_log = {}
             with torch.no_grad():
                 self.logger.experiment.log(
                     {
@@ -571,7 +584,7 @@ class DIRSequential(DIR):
     ):
         super().__init__(*args, **kwargs)
         self.seq_encoder = SeqEncoder(
-            n_objects=sum(self.encoder.head.num_anchors.values()),
+            n_objects=self.n_objects,
             z_what_size=self.z_what_size,
             what_probabilistic=self.is_what_probabilistic,
             depth_probabilistic=self.is_depth_probabilistic,
@@ -634,7 +647,7 @@ class DIRSequential(DIR):
     ):
         """Run step including packing sequence."""
         packed = (
-            rnn.pack_sequence(batch[0], enforce_sorted=False),
-            rnn.pack_sequence(batch[1], enforce_sorted=False),
+            rnn.pad_sequence(batch[0], batch_first=True).contiguous(),
+            rnn.pad_sequence(batch[1], batch_first=True).contiguous(),
         )
         return super().common_run_step(packed, batch_idx, stage)

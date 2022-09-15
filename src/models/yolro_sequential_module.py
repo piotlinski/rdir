@@ -21,6 +21,12 @@ class SequentialDIR(DIR):
         seq_rnn_cls: Type[nn.RNNBase] = nn.GRU,
         seq_n_layers: int = 1,
         seq_bidirectional: bool = False,
+        train_encoder_backbone: bool = False,
+        train_encoder_neck: bool = False,
+        train_encoder_head: bool = False,
+        train_encoder_what: bool = True,
+        train_encoder_depth: bool = True,
+        train_decoder_what: bool = True,
     ):
         """
         :param dir: DIR model to be used as a base
@@ -56,6 +62,13 @@ class SequentialDIR(DIR):
             num_layers=seq_n_layers,
             bidirectional=seq_bidirectional,
         )
+
+        self.encoder.backbone.requires_grad_(train_encoder_backbone)
+        self.encoder.neck.requires_grad_(train_encoder_neck)
+        self.encoder.head.requires_grad_(train_encoder_head)
+        self.encoder.what_enc.requires_grad_(train_encoder_what)
+        self.encoder.depth_enc.requires_grad_(train_encoder_depth)
+        self.decoder.what_dec.requires_grad_(train_decoder_what)
 
         self.n_objects = self._infer_n_objects()
 

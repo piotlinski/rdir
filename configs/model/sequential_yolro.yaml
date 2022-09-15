@@ -1,4 +1,4 @@
-_target_: src.models.dir_sequential_module.DIRSequential
+_target_: src.models.dir_sequential_module.SequentialDIR
 
 learning_rate: 1e-4
 

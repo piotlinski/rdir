@@ -77,10 +77,10 @@ class SequentialDIR(DIR):
         with torch.no_grad():
             inputs = torch.zeros(1, 3, self.image_size, self.image_size)
 
-            features = self.dir.encoder.backbone(inputs)
-            intermediates = self.dir.encoder.neck(features)
+            features = self.encoder.backbone(inputs)
+            intermediates = self.encoder.neck(features)
 
-            _, confs = self.dir.encoder.head(intermediates)
+            _, confs = self.encoder.head(intermediates)
 
             return confs.shape[1]
 

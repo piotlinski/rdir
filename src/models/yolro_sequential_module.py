@@ -6,9 +6,9 @@ import torch
 import torch.nn.utils.rnn as rnn
 from torch import nn
 
-from models.components.decode.decoder import DIRRepresentation
-from models.components.encode.seq import SeqEncoder, DIRLatents
-from models.dir_module import DIR
+from src.models.components.decode.decoder import DIRRepresentation
+from src.models.components.encode.seq import SeqEncoder, DIRLatents
+from src.models.dir_module import DIR
 
 
 class SequentialDIR(DIR):

@@ -53,6 +53,8 @@ class SequentialDIR(DIR):
             normalize_reconstructions=dir._normalize_reconstructions,
         )
 
+        self.n_objects = self._infer_n_objects()
+
         self.seq_encoder = SeqEncoder(
             n_objects=self.n_objects,
             z_what_size=self.z_what_size,
@@ -69,8 +71,6 @@ class SequentialDIR(DIR):
         self.encoder.what_enc.requires_grad_(train_encoder_what)
         self.encoder.depth_enc.requires_grad_(train_encoder_depth)
         self.decoder.what_dec.requires_grad_(train_decoder_what)
-
-        self.n_objects = self._infer_n_objects()
 
     def _infer_n_objects(self) -> int:
         """Infer number of returned objects."""

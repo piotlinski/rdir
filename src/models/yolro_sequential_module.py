@@ -50,7 +50,7 @@ class SequentialDIR(DIR):
             depth_coef=dir.depth_coef,
             present_coef=dir.present_coef,
             objects_coef=dir.objects_coef,
-            normalize_reconstructions=dir.normalize_reconstructions,
+            normalize_reconstructions=dir._normalize_reconstructions,
         )
 
         self.seq_encoder = SeqEncoder(

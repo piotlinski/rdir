@@ -1,6 +1,6 @@
 """DIR encoder."""
 from copy import deepcopy
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 import torch.nn as nn
@@ -9,13 +9,7 @@ from src.models.components.encode.depth import DepthEncoder
 from src.models.components.encode.heads import PresentHead, WhereHead
 from src.models.components.encode.parse import parse_yolov4
 from src.models.components.encode.what import WhatEncoder
-
-DIRLatents = Tuple[
-    torch.Tensor,
-    torch.Tensor,
-    Tuple[torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor],
-]
+from src.models.components.latents import DIRLatents
 
 
 class Encoder(nn.Module):

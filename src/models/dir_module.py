@@ -13,9 +13,8 @@ import torch.nn.functional as F
 import wandb
 from torchmetrics import MeanSquaredError
 
-from src.models.components.decode.decoder import DIRRepresentation
 from src.models.components.decode.where import WhereTransformer
-from src.models.components.encode.encoder import DIRLatents
+from src.models.components.latents import DIRLatents, DIRRepresentation
 
 dist.enable_validation(False)
 

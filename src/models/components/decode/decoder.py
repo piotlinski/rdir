@@ -7,8 +7,7 @@ import torch.nn.functional as F
 
 from src.models.components.decode.what import WhatDecoder
 from src.models.components.decode.where import WhereTransformer
-
-DIRRepresentation = Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+from src.models.components.latents import DIRRepresentation
 
 
 class Decoder(nn.Module):

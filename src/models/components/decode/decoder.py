@@ -56,17 +56,14 @@ class Decoder(nn.Module):
 
     @staticmethod
     def filter(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
-        """Filter latent based on mask."""
+        """Filter representation based on mask."""
         return tensor[mask.expand_as(tensor)].view(-1, tensor.shape[-1])
 
-    def filter_latents(
-        self,
-        z_where: torch.Tensor,
-        z_present: torch.Tensor,
-        z_what: torch.Tensor,
-        z_depth: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        """Filter latents according to z_present."""
+    def filter_representation(
+        self, representation: DIRRepresentation
+    ) -> DIRRepresentation:
+        """Filter representation according to z_present."""
+        z_where, z_present, z_what, z_depth = representation
         z_present = self.fix_z_present(z_present)
         present_mask = torch.eq(z_present, 1)
         z_where = self.filter(z_where, present_mask)
@@ -173,14 +170,14 @@ class Decoder(nn.Module):
 
     def forward(
         self,
-        latents: DIRRepresentation,
+        representation: DIRRepresentation,
         return_objects: bool = False,
         normalize_reconstructions: bool = False,
     ) -> Dict[str, torch.Tensor]:
-        """Reconstruct images from latent variables."""
+        """Reconstruct images from representation."""
         ret = {}
 
-        z_where, z_present, z_what, z_depth = self.filter_latents(*latents)
+        z_where, z_present, z_what, z_depth = self.filter_representation(representation)
 
         objects, z_where_flat = self.decode_objects(z_where, z_what)
         if return_objects:

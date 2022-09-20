@@ -24,8 +24,8 @@ def test_fix_z_present(batch_size, n_objects, no_objects):
     assert (fixed_n_present[no_objects] == max_objects).all()
 
 
-def test_filter_latents():
-    """Test if latents are filtered appropriately."""
+def test_filter_representation():
+    """Test if representation is filtered appropriately."""
     batch_size = 2
     n_objects = 4
     z_what_size = 3
@@ -35,8 +35,8 @@ def test_filter_latents():
     z_depth = torch.rand(batch_size, n_objects, 1)
 
     decoder = Decoder(z_what_size=z_what_size)
-    new_z_where, new_z_present, new_z_what, new_z_depth = decoder.filter_latents(
-        z_where, z_present, z_what, z_depth
+    new_z_where, new_z_present, new_z_what, new_z_depth = decoder.filter_representation(
+        (z_where, z_present, z_what, z_depth)
     )
 
     n_filtered = torch.sum(z_present, dtype=torch.long)

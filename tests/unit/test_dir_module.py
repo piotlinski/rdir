@@ -60,14 +60,10 @@ def test_dir_is_deterministic(
 @pytest.mark.parametrize("z_what_scale_const", [-1.0, 0, 0.1])
 @pytest.mark.parametrize("z_depth_scale_const", [-1.0, 0, 0.2])
 @pytest.mark.parametrize("z_present_threshold", [-1.0, 0.1])
-@pytest.mark.parametrize("reset_non_present", [False, True])
-@pytest.mark.parametrize("clone_backbone", [False, True])
 def test_dir_encoder_forward(
     z_what_scale_const,
     z_depth_scale_const,
     z_present_threshold,
-    reset_non_present,
-    clone_backbone,
     yolov4_mock,
     encoder,
     decoder,

@@ -5,6 +5,25 @@ import torch
 from src.models.components.decode.decoder import Decoder
 
 
+@pytest.mark.parametrize("batch_size", [4, 3, 7])
+@pytest.mark.parametrize("n_objects", [5, 7, 10])
+@pytest.mark.parametrize("no_objects", [[0], [1, 2], []])
+def test_fix_z_present(batch_size, n_objects, no_objects):
+    """Test if z_present with no objects in images is fixed appropriately."""
+    z_present = torch.randint(2, (batch_size, n_objects, 1))
+    z_present[:, 0] = 1
+    z_present[no_objects] = 0
+    n_present = torch.sum(z_present, dim=1)
+    max_objects = torch.max(n_present)
+
+    fixed = Decoder.fix_z_present(z_present)
+
+    assert (torch.sum(fixed, dim=1) > 0).all()
+    fixed_n_present = torch.sum(fixed, dim=1)
+    assert torch.max(fixed_n_present) == max_objects
+    assert (fixed_n_present[no_objects] == max_objects).all()
+
+
 def test_filter_latents():
     """Test if latents are filtered appropriately."""
     batch_size = 2
@@ -16,7 +35,7 @@ def test_filter_latents():
     z_depth = torch.rand(batch_size, n_objects, 1)
 
     decoder = Decoder(z_what_size=z_what_size)
-    new_z_where, new_z_what, new_z_depth = decoder.filter_latents(
+    new_z_where, new_z_present, new_z_what, new_z_depth = decoder.filter_latents(
         z_where, z_present, z_what, z_depth
     )
 
@@ -55,8 +74,7 @@ def test_decode_objects(batch_size, n_objects, z_what_size, decoded_size):
 )
 def test_pad_indices(n_present, expected):
     """Verify padded indices calculation."""
-    decoder = Decoder()
-    indices = decoder.pad_indices(n_present)
+    indices = Decoder.pad_indices(n_present)
     assert indices.shape == (n_present.shape[0] * (torch.max(n_present) + 1),)
     assert torch.max(indices) == torch.sum(n_present)
     assert torch.equal(indices, expected)
@@ -96,14 +114,13 @@ def test_pad_reconstructions():
 
 @pytest.mark.parametrize("decoded_size", [4, 16])
 @pytest.mark.parametrize("image_size", [128, 196])
-@pytest.mark.parametrize("drop", [False, True])
-def test_transform_objects(decoded_size, image_size, drop):
+def test_transform_objects(decoded_size, image_size):
     """Verify dimension of transformed objects."""
-    decoder = Decoder(decoded_size=decoded_size, image_size=image_size, drop=drop)
+    decoder = Decoder(decoded_size=decoded_size, image_size=image_size)
     decoded_objects = torch.rand(6, 3, decoded_size, decoded_size)
     z_where_flat = torch.rand(6, 4)
     z_present = torch.tensor([[[1], [0], [1]], [[0], [1], [1]]], dtype=torch.long)
-    z_depth = torch.rand(6, 1) if drop else torch.rand(2, 3, 1)
+    z_depth = torch.rand(6, 1)
 
     objects, depths = decoder.transform_objects(
         decoded_objects, z_where_flat, z_present, z_depth
@@ -121,13 +138,11 @@ def test_reconstruct(batch_size, n_objects, image_size):
     """Check if reconstructed images have appropriate shape."""
     objects = torch.rand(batch_size, n_objects, 3, image_size, image_size)
     weights = torch.rand(batch_size, n_objects, 1)
-    decoder = Decoder()
-    merged = decoder.reconstruct(objects, weights)
+    merged = Decoder.reconstruct(objects, weights)
     assert merged.shape == (batch_size, 3, image_size, image_size)
 
 
-@pytest.mark.parametrize("drop", [False, True])
-def test_decoder_output(drop):
+def test_decoder_output():
     """Verify decoder output dimensions."""
     batch_size = 3
     n_objects = 7
@@ -141,10 +156,7 @@ def test_decoder_output(drop):
     latents = (z_where, z_present, z_what, z_depth)
 
     decoder = Decoder(
-        z_what_size=z_what_size,
-        decoded_size=decoded_size,
-        image_size=image_size,
-        drop=drop,
+        z_what_size=z_what_size, decoded_size=decoded_size, image_size=image_size
     )
 
     outputs = decoder(latents)

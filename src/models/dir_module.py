@@ -76,7 +76,6 @@ class DIR(pl.LightningModule):
 
         self.image_size = self.decoder.image_size
         self.decoded_size = self.decoder.what_dec.decoded_size
-        self.drop = self.decoder.drop
         self.z_what_size = self.encoder.what_enc.latent_dim
         self.z_present_threshold = z_present_threshold
         self.z_present_p_prior = z_present_p_prior
@@ -175,13 +174,7 @@ class DIR(pl.LightningModule):
         self, images: torch.Tensor, z_present: torch.Tensor, objects_where: torch.Tensor
     ) -> torch.Tensor:
         """Transform ground-truth objects with given where coordinates."""
-        n_present = (
-            torch.sum(z_present, dim=1, dtype=torch.long).squeeze(-1)
-            if self.drop
-            else z_present.new_tensor(
-                z_present.shape[0] * [z_present.shape[1]], dtype=torch.long
-            )
-        )
+        n_present = torch.sum(z_present, dim=1, dtype=torch.long).squeeze(-1)
         objects_indices = torch.repeat_interleave(
             torch.arange(
                 n_present.numel(),

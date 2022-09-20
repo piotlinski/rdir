@@ -21,25 +21,44 @@ class Decoder(nn.Module):
         z_what_size: int = 64,
         decoded_size: int = 64,
         image_size: int = 416,
-        drop: bool = True,
         train_what: bool = True,
     ):
         """
         :param z_what_size: z_what latent representation size
         :param decoded_size: reconstructed object size
         :param image_size: reconstructed image size
-        :param drop: exclude non-empty objects from reconstruction
         :param train_what: perform z_what decoder training
         """
         super().__init__()
 
         self.image_size = image_size
-        self.drop = drop
 
         self.what_dec = WhatDecoder(
             latent_dim=z_what_size, decoded_size=decoded_size
         ).requires_grad_(train_what)
         self.where_stn = WhereTransformer(image_size=image_size)
+
+    @staticmethod
+    def fix_z_present(z_present: torch.Tensor) -> torch.Tensor:
+        """Review if any image yielded no detection and choose random objects."""
+        n_present = torch.sum(z_present, dim=1, dtype=torch.long)
+        max_present = torch.max(n_present)
+
+        empty = n_present == 0
+        if empty.any():
+            indices = torch.argsort(torch.rand(*z_present.shape[:-1]), dim=-1)[
+                :, :max_present
+            ]
+            corrected = torch.zeros_like(z_present)
+            corrected[torch.arange(corrected.shape[0]).unsqueeze(-1), indices] = 1
+            z_present = torch.where(empty.unsqueeze(-1), corrected, z_present)
+
+        return z_present
+
+    @staticmethod
+    def filter(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Filter latent based on mask."""
+        return tensor[mask.expand_as(tensor)].view(-1, tensor.shape[-1])
 
     def filter_latents(
         self,
@@ -47,13 +66,14 @@ class Decoder(nn.Module):
         z_present: torch.Tensor,
         z_what: torch.Tensor,
         z_depth: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """Filter latents according to z_present."""
+        z_present = self.fix_z_present(z_present)
         present_mask = torch.eq(z_present, 1)
-        z_where = z_where[present_mask.expand_as(z_where)].view(-1, z_where.shape[-1])
-        z_what = z_what[present_mask.expand_as(z_what)].view(-1, z_what.shape[-1])
-        z_depth = z_depth[present_mask.expand_as(z_depth)].view(-1, z_depth.shape[-1])
-        return z_where, z_what, z_depth
+        z_where = self.filter(z_where, present_mask)
+        z_what = self.filter(z_what, present_mask)
+        z_depth = self.filter(z_depth, present_mask)
+        return z_where, z_present, z_what, z_depth
 
     def decode_objects(
         self, z_where: torch.Tensor, z_what: torch.Tensor
@@ -64,7 +84,8 @@ class Decoder(nn.Module):
         decoded_objects = self.what_dec(z_what_flat)
         return decoded_objects, z_where_flat
 
-    def pad_indices(self, n_present: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def pad_indices(n_present: torch.Tensor) -> torch.Tensor:
         """Using number of objects in chunks create indices.
 
         .. so that every chunk is padded to the same dimension.
@@ -125,20 +146,15 @@ class Decoder(nn.Module):
         z_depth: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """Render reconstructions and their depths."""
-        n_present = (
-            torch.sum(z_present, dim=1, dtype=torch.long).squeeze(-1)
-            if self.drop
-            else z_present.new_tensor(
-                z_present.shape[0] * [z_present.shape[1]], dtype=torch.long
-            )
-        )
+        n_present = torch.sum(z_present, dim=1, dtype=torch.long).squeeze(-1)
         objects = self.where_stn(decoded_objects, z_where_flat)
         objects, depths = self.pad_reconstructions(
             transformed_objects=objects, z_depth=z_depth, n_present=n_present
         )
         return objects, depths
 
-    def reconstruct(self, objects: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+    @staticmethod
+    def reconstruct(objects: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
         """Combine decoder images into one by weighted sum."""
         weighted_objects = objects * F.softmax(weights, dim=1).view(
             *weights.shape[:2], 1, 1, 1
@@ -165,11 +181,7 @@ class Decoder(nn.Module):
         """Reconstruct images from latent variables."""
         ret = {}
 
-        z_where, z_present, z_what, z_depth = latents
-        if self.drop:
-            z_where, z_what, z_depth = self.filter_latents(
-                z_where, z_present, z_what, z_depth
-            )
+        z_where, z_present, z_what, z_depth = self.filter_latents(*latents)
 
         objects, z_where_flat = self.decode_objects(z_where, z_what)
         if return_objects:

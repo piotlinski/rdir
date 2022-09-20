@@ -14,7 +14,11 @@ import wandb
 from torchmetrics import MeanSquaredError
 
 from src.models.components.decode.where import WhereTransformer
-from src.models.components.latents import DIRLatents, DIRRepresentation
+from src.models.components.latents import (
+    LatentHandler,
+    DIRLatents,
+    DIRRepresentation,
+)
 
 dist.enable_validation(False)
 
@@ -53,6 +57,7 @@ class DIR(pl.LightningModule):
         present_coef: float = 1.0,
         objects_coef: float = 0.0,
         normalize_reconstructions: bool = False,
+        reset_non_present: bool = True,
     ):
         """
         :param learning_rate: learning rate used for training the model
@@ -65,6 +70,7 @@ class DIR(pl.LightningModule):
         :param present_coef: z_present distribution component coef
         :param objects_coef: per-object reconstruction component coef
         :param normalize_reconstructions: normalize reconstructions before scoring
+        :param reset_non_present: set non-present latents to some ordinary ones
         """
         super().__init__()
 
@@ -86,6 +92,7 @@ class DIR(pl.LightningModule):
         self._objects_coef = objects_coef
         self._normalize_reconstructions = normalize_reconstructions
 
+        self.latent_handler = LatentHandler(reset_non_present=reset_non_present)
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 
         self.save_hyperparameters()
@@ -133,7 +140,7 @@ class DIR(pl.LightningModule):
             z_present,
             (z_what, z_what_scale),
             (z_depth, z_depth_scale),
-        ) = latents
+        ) = self.latent_handler(latents)
         self._store["z_where"] = z_where.detach()
         self._store["z_what_loc"] = z_what.detach()
         if self.is_what_probabilistic:  # else use loc
@@ -221,7 +228,8 @@ class DIR(pl.LightningModule):
         pyro.module("decoder", self.decoder)
         batch_size = x.shape[0]
 
-        z_where, z_present, (z_what, _), (z_depth, _) = self.encoder(x)
+        latents = self.encoder(x)
+        z_where, z_present, (z_what, _), (z_depth, _) = self.latent_handler(latents)
         n_objects = z_where.shape[1]
 
         with pyro.plate("data", batch_size):
@@ -296,12 +304,13 @@ class DIR(pl.LightningModule):
         batch_size = x.shape[0]
 
         with pyro.plate("data", batch_size):
+            latents = self.encoder(x)
             (
                 z_where,
                 z_present_p,
                 (z_what, z_what_scale),
                 (z_depth, z_depth_scale),
-            ) = self.encoder(x)
+            ) = self.latent_handler(latents)
             n_objects = z_where.shape[1]
             self._store["z_where"] = z_where.detach()
             self._store["z_present_p"] = z_present_p.detach()

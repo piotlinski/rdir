@@ -12,6 +12,7 @@ present_coef: 0.1
 objects_coef: 10
 
 normalize_reconstructions: true
+reset_non_present: true
 
 encoder:
   _target_: src.models.components.encode.encoder.Encoder
@@ -23,7 +24,6 @@ encoder:
   z_what_hidden: 3
   z_what_scale_const: 0
   z_depth_scale_const: 0
-  reset_non_present: true
 
   train_backbone: false
   train_neck: false

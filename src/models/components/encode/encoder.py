@@ -23,7 +23,6 @@ class Encoder(nn.Module):
         z_what_hidden: int = 1,
         z_what_scale_const: float = -1.0,
         z_depth_scale_const: float = -1.0,
-        reset_non_present: bool = False,
         train_backbone: bool = False,
         train_neck: bool = False,
         train_head: bool = False,
@@ -40,7 +39,6 @@ class Encoder(nn.Module):
             (negative for trainable, 0 for deterministic z_what)
         :param z_depth_scale_const: allows to set z_depth scale to a constant
             (negative for trainable, 0 for deterministic z_depth)
-        :param reset_non_present: set non-present latents to some ordinary ones
         :param train_backbone: perform backbone training
         :param train_neck: perform neck training
         :param train_head: perform head training
@@ -73,11 +71,6 @@ class Encoder(nn.Module):
             scale_const=z_depth_scale_const,
         ).requires_grad_(train_depth)
 
-        self._reset_non_present = reset_non_present
-        self._z_present_eps = 1e-3
-        self.register_buffer("_empty_loc", torch.tensor(0.0, dtype=torch.float))
-        self.register_buffer("_empty_scale", torch.tensor(1.0, dtype=torch.float))
-
         self.cloned_backbone: Optional[nn.Module] = None
         self.cloned_neck: Optional[nn.Module] = None
         if clone_backbone:
@@ -85,36 +78,6 @@ class Encoder(nn.Module):
                 self.cloned_neck = deepcopy(self.neck).requires_grad_(True)
             if clone_backbone == "all":
                 self.cloned_backbone = deepcopy(self.backbone).requires_grad_(True)
-
-    def reset_non_present(self, latents: DIRLatents) -> DIRLatents:
-        """Reset latents, whose z_present is 0."""
-        (
-            z_where,
-            z_present,
-            (z_what_loc, z_what_scale),
-            (z_depth_loc, z_depth_scale),
-        ) = latents
-        present_mask = torch.gt(z_present, self._z_present_eps)
-        z_what_loc = torch.where(
-            present_mask, z_what_loc, self._empty_loc.type(z_what_loc.dtype)
-        )
-        if self.what_enc.is_probabilistic:
-            z_what_scale = torch.where(
-                present_mask, z_what_scale, self._empty_scale.type(z_what_scale.dtype)
-            )
-        z_depth_loc = torch.where(
-            present_mask, z_depth_loc, self._empty_loc.type(z_depth_loc.dtype)
-        )
-        if self.depth_enc.is_probabilistic:
-            z_depth_scale = torch.where(
-                present_mask, z_depth_scale, self._empty_scale.type(z_depth_scale.dtype)
-            )
-        return (
-            z_where,
-            z_present,
-            (z_what_loc, z_what_scale),
-            (z_depth_loc, z_depth_scale),
-        )
 
     def forward(self, images: torch.Tensor) -> DIRLatents:
         """Encode images to latent representation.
@@ -139,7 +102,5 @@ class Encoder(nn.Module):
         z_depth = self.depth_enc(intermediates)
 
         latents = (z_where, z_present, z_what, z_depth)
-        if self._reset_non_present:
-            latents = self.reset_non_present(latents)
 
         return latents

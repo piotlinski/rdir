@@ -1,5 +1,5 @@
 """Latents handler for DIR."""
-from typing import Tuple
+from typing import Callable, Tuple
 
 import torch
 from torch import nn
@@ -58,8 +58,21 @@ class LatentHandler(nn.Module):
             (z_depth_loc, z_depth_scale),
         )
 
-    def forward(self, latents: DIRLatents) -> DIRLatents:
+    def forward(
+        self,
+        latents: DIRLatents,
+        where_fn: Callable[[torch.Tensor], torch.Tensor],
+        present_fn: Callable[[torch.Tensor], torch.Tensor],
+        what_fn: Callable[[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor],
+        depth_fn: Callable[[Tuple[torch.Tensor, torch.Tensor]], torch.Tensor],
+    ) -> DIRRepresentation:
         if self._reset_non_present:
             latents = self.reset_non_present(latents)
+        z_where, z_present, z_what, z_depth = latents
 
-        return latents
+        z_where = where_fn(z_where)
+        z_present = present_fn(z_present)
+        z_what = what_fn(z_what)
+        z_depth = depth_fn(z_depth)
+
+        return z_where, z_present, z_what, z_depth

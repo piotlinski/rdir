@@ -133,30 +133,57 @@ class DIR(pl.LightningModule):
         """Perform forward pass through encoder network."""
         return self.encoder(inputs)
 
-    def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
-        """Sample latents to create representation."""
-        (
-            z_where,
-            z_present,
-            (z_what, z_what_scale),
-            (z_depth, z_depth_scale),
-        ) = self.latent_handler(latents)
+    def _sample_where(self, z_where: torch.Tensor) -> torch.Tensor:
+
         self._store["z_where"] = z_where.detach()
-        self._store["z_what_loc"] = z_what.detach()
-        if self.is_what_probabilistic:  # else use loc
-            z_what = dist.Normal(z_what, z_what_scale).sample()
-        self._store["z_what"] = z_what.detach()
-        self._store["z_depth_loc"] = z_depth.detach()
-        if self.is_depth_probabilistic:  # else use loc
-            z_depth = dist.Normal(z_depth, z_depth_scale).sample()
-        self._store["z_depth"] = z_depth.detach()
+
+        return z_where
+
+    def _sample_present(self, z_present: torch.Tensor) -> torch.Tensor:
         self._store["z_present_p"] = z_present.detach()
+
         if self.z_present_threshold < 0:
             z_present = dist.Bernoulli(z_present).sample()
         else:
             z_present = self.threshold_z_present(z_present)
+
         self._store["z_present"] = z_present.detach()
-        return z_where, z_present, z_what, z_depth
+
+        return z_present
+
+    def _sample_what(self, z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        z_what, z_what_scale = z_what
+
+        self._store["z_what_loc"] = z_what.detach()
+
+        if self.is_what_probabilistic:  # else use loc
+            z_what = dist.Normal(z_what, z_what_scale).sample()
+
+        self._store["z_what"] = z_what.detach()
+
+        return z_what
+
+    def _sample_depth(self, z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+        z_depth, z_depth_scale = z_depth
+
+        self._store["z_depth_loc"] = z_depth.detach()
+
+        if self.is_depth_probabilistic:  # else use loc
+            z_depth = dist.Normal(z_depth, z_depth_scale).sample()
+
+        self._store["z_depth"] = z_depth.detach()
+
+        return z_depth
+
+    def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
+        """Sample latents to create representation."""
+        return self.latent_handler(
+            latents,
+            where_fn=self._sample_where,
+            present_fn=self._sample_present,
+            what_fn=self._sample_what,
+            depth_fn=self._sample_depth,
+        )
 
     def decoder_forward(self, latents: DIRRepresentation) -> torch.Tensor:
         """Perform forward pass through decoder network."""
@@ -225,15 +252,10 @@ class DIR(pl.LightningModule):
 
     def model(self, x: torch.Tensor):
         """Pyro model."""
-        pyro.module("decoder", self.decoder)
-        batch_size = x.shape[0]
 
-        latents = self.encoder(x)
-        z_where, z_present, (z_what, _), (z_depth, _) = self.latent_handler(latents)
-        n_objects = z_where.shape[1]
+        def _present(z_present: torch.Tensor) -> torch.Tensor:
+            n_objects = z_present.shape[1]
 
-        with pyro.plate("data", batch_size):
-            # z_present
             if self.z_present_threshold < 0:
                 z_present_p = x.new_full(
                     (batch_size, n_objects, 1), fill_value=self.z_present_p_prior
@@ -245,7 +267,12 @@ class DIR(pl.LightningModule):
             else:
                 z_present = self.threshold_z_present(z_present)
 
-            # z_what
+            return z_present
+
+        def _what(z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+            z_what, z_what_scale = z_what
+            n_objects = z_what.shape[1]
+
             if self.is_what_probabilistic:  # else use loc
                 z_what_loc = x.new_zeros(batch_size, n_objects, self.z_what_size)
                 z_what_scale = torch.ones_like(z_what_loc)
@@ -254,17 +281,38 @@ class DIR(pl.LightningModule):
                         "z_what", dist.Normal(z_what_loc, z_what_scale).to_event(2)
                     )
 
-            # z_depth
+            return z_what
+
+        def _depth(z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+            z_depth, z_depth_scale = z_depth
+            n_objects = z_depth.shape[1]
+
             if self.is_depth_probabilistic:  # else use loc
                 z_depth_loc = x.new_zeros(batch_size, n_objects, 1)
                 z_depth_scale = torch.ones_like(z_depth_loc)
                 with poutine.scale(scale=self.depth_coef(batch_size, n_objects)):
                     z_depth = pyro.sample(
-                        "z_depth", dist.Normal(z_depth_loc, z_depth_scale).to_event(2)
+                        "z_depth",
+                        dist.Normal(z_depth_loc, z_depth_scale).to_event(2),
                     )
 
+            return z_depth
+
+        pyro.module("decoder", self.decoder)
+        batch_size = x.shape[0]
+
+        latents = self.encoder(x)
+
+        with pyro.plate("data", batch_size):
+            representation = self.latent_handler(
+                latents,
+                where_fn=lambda z_where: z_where,
+                present_fn=_present,
+                what_fn=_what,
+                depth_fn=_depth,
+            )
             output = self.decoder(
-                (z_where, z_present, z_what, z_depth),
+                representation,
                 return_objects=True,
                 normalize_reconstructions=self._normalize_reconstructions,
             )
@@ -286,6 +334,7 @@ class DIR(pl.LightningModule):
 
         # per-object reconstructions
         if self._objects_coef:
+            _, z_present, *_ = representation
             with pyro.plate("objects_data"):
                 objects = output["objects"]
                 self._store["objects"] = objects.detach()
@@ -300,50 +349,72 @@ class DIR(pl.LightningModule):
 
     def guide(self, x: torch.Tensor):
         """Pyro guide."""
-        pyro.module("encoder", self.encoder)
-        batch_size = x.shape[0]
 
-        with pyro.plate("data", batch_size):
-            latents = self.encoder(x)
-            (
-                z_where,
-                z_present_p,
-                (z_what, z_what_scale),
-                (z_depth, z_depth_scale),
-            ) = self.latent_handler(latents)
-            n_objects = z_where.shape[1]
-            self._store["z_where"] = z_where.detach()
-            self._store["z_present_p"] = z_present_p.detach()
-            self._store["z_what_loc"] = z_what.detach()
-            self._store["z_what_scale"] = z_what_scale.detach()
-            self._store["z_depth_loc"] = z_depth.detach()
-            self._store["z_depth_scale"] = z_depth_scale.detach()
+        def _present(z_present: torch.Tensor) -> torch.Tensor:
+            n_objects = z_present.shape[1]
 
-            # z_present
+            self._store["z_present_p"] = z_present.detach()
+
             if self.z_present_threshold < 0:
                 with poutine.scale(scale=self.present_coef(batch_size, n_objects)):
                     z_present = pyro.sample(
-                        "z_present", dist.Bernoulli(z_present_p).to_event(2)
+                        "z_present", dist.Bernoulli(z_present).to_event(2)
                     )
             else:
-                z_present = self.threshold_z_present(z_present_p)
+                z_present = self.threshold_z_present(z_present)
+
             self._store["z_present"] = z_present.detach()
 
-            # z_what
+            return z_present
+
+        def _what(z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+            z_what, z_what_scale = z_what
+
+            self._store["z_what_loc"] = z_what.detach()
+            self._store["z_what_scale"] = z_what_scale.detach()
+
+            n_objects = z_what.shape[1]
+
             if self.is_what_probabilistic:  # else use loc
                 with poutine.scale(scale=self.what_coef(batch_size, n_objects)):
                     z_what = pyro.sample(
                         "z_what", dist.Normal(z_what, z_what_scale).to_event(2)
                     )
+
             self._store["z_what"] = z_what.detach()
 
-            # z_depth
+            return z_what
+
+        def _depth(z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+            z_depth, z_depth_scale = z_depth
+
+            self._store["z_depth_loc"] = z_depth.detach()
+            self._store["z_depth_scale"] = z_depth_scale.detach()
+
+            n_objects = z_depth.shape[1]
+
             if self.is_depth_probabilistic:  # else use depth
                 with poutine.scale(scale=self.depth_coef(batch_size, n_objects)):
                     z_depth = pyro.sample(
                         "z_depth", dist.Normal(z_depth, z_depth_scale).to_event(2)
                     )
             self._store["z_depth"] = z_depth.detach()
+
+            return z_depth
+
+        pyro.module("encoder", self.encoder)
+        batch_size = x.shape[0]
+
+        with pyro.plate("data", batch_size):
+            latents = self.encoder(x)
+            representation = self.latent_handler(
+                latents,
+                where_fn=self._sample_where,
+                present_fn=_present,
+                what_fn=_what,
+                depth_fn=_depth,
+            )
+            return representation
 
     def probabilistic_step(self, images: torch.Tensor, stage: str) -> torch.Tensor:
         """Training step with probabilistic model."""

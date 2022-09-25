@@ -54,7 +54,10 @@ class Decoder(nn.Module):
 
     def filter(self, objects: torch.Tensor, z_present: torch.Tensor) -> torch.Tensor:
         """Set non-present objects to zeros."""
-        return torch.where(z_present == -1, self._no_object.expand_as(objects), objects)
+        batch_size, n_objects, *_ = z_present.shape
+        mask = (z_present == -1).view(batch_size, n_objects, 1, 1, 1).expand_as(objects)
+        no_objects = self._no_object.view(1, 1, 1, 1, 1).expand_as(objects)
+        return torch.where(mask, no_objects, objects)
 
     @staticmethod
     def reconstruct(objects: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:

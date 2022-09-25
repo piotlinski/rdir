@@ -71,6 +71,31 @@ def test_decoder_output():
     assert (reconstructions <= 1).all()
 
 
+def test_decoder_output_eval():
+    """Verify decoder output dimensions."""
+    batch_size = 3
+    n_objects = 7
+    z_what_size = 8
+    decoded_size = 32
+    image_size = 96
+    z_where = torch.rand(batch_size, n_objects, 4)
+    z_present = torch.randint(0, 2, (batch_size, n_objects, 1))
+    z_what = torch.rand(batch_size, n_objects, z_what_size)
+    z_depth = torch.rand(batch_size, n_objects, 1)
+    latents = (z_where, z_present, z_what, z_depth)
+
+    decoder = Decoder(
+        z_what_size=z_what_size, decoded_size=decoded_size, image_size=image_size
+    ).eval()
+
+    outputs = decoder(latents)
+    reconstructions = outputs["reconstructions"]
+    assert reconstructions.shape == (batch_size, 3, image_size, image_size)
+    assert reconstructions.dtype == torch.float
+    assert (reconstructions >= 0).all()
+    assert (reconstructions <= 1).all()
+
+
 @pytest.mark.parametrize("train_what", [False, True])
 def test_decoder_train(train_what):
     """Verify if training submodules can be disabled."""

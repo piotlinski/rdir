@@ -3,6 +3,7 @@ from typing import Callable, Tuple
 
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 DIRLatents = Tuple[
     torch.Tensor,
@@ -18,14 +19,17 @@ class LatentHandler(nn.Module):
 
     def __init__(
         self,
-        reset_non_present: bool = True,
+        reset_non_present: bool = False,
+        negative_percentage: float = 0.1,
     ):
         """
         :param reset_non_present: set non-present latents to some ordinary ones
+        :param negative_percentage: percentage of negative objects to be added
         """
         super().__init__()
 
         self._reset_non_present = reset_non_present
+        self._negative_percentage = negative_percentage
 
         self._z_present_eps = 1e-3
         self.register_buffer("_empty_loc", torch.tensor(0.0, dtype=torch.float))
@@ -58,6 +62,65 @@ class LatentHandler(nn.Module):
             (z_depth_loc, z_depth_scale),
         )
 
+    @staticmethod
+    def negative_indices(z_present: torch.Tensor, padded_size: int) -> torch.Tensor:
+        """Get array of zero-valued indices.
+
+        .. note: first objects' index will be used as padding     we use -1 to
+        indicate indices where present objects are
+        """
+        zero = torch.nonzero(torch.eq(z_present, 0))
+        shuffled = torch.randperm(zero.shape[0])
+        zero = zero[shuffled]
+
+        indices = []
+        for idx, n in enumerate(torch.sum(z_present, dim=1, dtype=torch.long)):
+            row = zero[zero[:, 0] == idx][:, 1]
+            row = F.pad(row, (padded_size - len(row), 0), value=row[0])
+            row[:n] = -1
+            indices.append(row)
+
+        return torch.stack(indices)
+
+    def add_negative(self, z_present: torch.Tensor) -> torch.Tensor:
+        """Add some present objects for learning negative as well.
+
+        .. note: this method ensures that we have equal number of objects for
+        each image we indicate negative objects by putting -1 in z_present
+        """
+        n_present = torch.sum(z_present, dim=1, dtype=torch.long)
+        max_present = torch.max(n_present)
+        negative_added = int(self._negative_percentage * z_present.shape[1])
+        n_objects = max_present + negative_added
+
+        added = self.negative_indices(z_present, n_objects)
+
+        x_mask, y_mask = torch.nonzero(added != -1, as_tuple=True)
+        modified = z_present.clone()
+        modified[(x_mask, added[(x_mask, y_mask)])] = -1
+
+        return modified
+
+    @staticmethod
+    def filter(tensor: torch.Tensor, mask: torch.Tensor) -> torch.Tensor:
+        """Filter representation based on mask."""
+        return tensor[mask.expand_as(tensor)].view(
+            tensor.shape[-0], -1, tensor.shape[-1]
+        )
+
+    def filter_representation(
+        self, representation: DIRRepresentation
+    ) -> DIRRepresentation:
+        """Filter representation according to z_present."""
+        z_where, z_present, z_what, z_depth = representation
+        z_present = self.add_negative(z_present)
+        present_mask = torch.ne(z_present, 0)
+        z_where = self.filter(z_where, present_mask)
+        z_present = self.filter(z_present, present_mask)
+        z_what = self.filter(z_what, present_mask)
+        z_depth = self.filter(z_depth, present_mask)
+        return z_where, z_present, z_what, z_depth
+
     def forward(
         self,
         latents: DIRLatents,
@@ -70,9 +133,13 @@ class LatentHandler(nn.Module):
             latents = self.reset_non_present(latents)
         z_where, z_present, z_what, z_depth = latents
 
-        z_where = where_fn(z_where)
-        z_present = present_fn(z_present)
-        z_what = what_fn(z_what)
-        z_depth = depth_fn(z_depth)
+        representation = (
+            where_fn(z_where),
+            present_fn(z_present),
+            what_fn(z_what),
+            depth_fn(z_depth),
+        )
 
-        return z_where, z_present, z_what, z_depth
+        filtered = self.filter_representation(representation)
+
+        return filtered

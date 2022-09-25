@@ -12,7 +12,8 @@ present_coef: 0.1
 objects_coef: 10
 
 normalize_reconstructions: true
-reset_non_present: true
+reset_non_present: false
+negative_percentage: 0.1
 
 encoder:
   _target_: src.models.components.encode.encoder.Encoder

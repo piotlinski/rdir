@@ -57,7 +57,8 @@ class DIR(pl.LightningModule):
         present_coef: float = 1.0,
         objects_coef: float = 0.0,
         normalize_reconstructions: bool = False,
-        reset_non_present: bool = True,
+        reset_non_present: bool = False,
+        negative_percentage: bool = 0.1,
     ):
         """
         :param learning_rate: learning rate used for training the model
@@ -71,6 +72,7 @@ class DIR(pl.LightningModule):
         :param objects_coef: per-object reconstruction component coef
         :param normalize_reconstructions: normalize reconstructions before scoring
         :param reset_non_present: set non-present latents to some ordinary ones
+        :param negative_percentage: percentage of negative samples
         """
         super().__init__()
 
@@ -92,7 +94,9 @@ class DIR(pl.LightningModule):
         self._objects_coef = objects_coef
         self._normalize_reconstructions = normalize_reconstructions
 
-        self.latent_handler = LatentHandler(reset_non_present=reset_non_present)
+        self.latent_handler = LatentHandler(
+            reset_non_present=reset_non_present, negative_percentage=negative_percentage
+        )
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 
         self.save_hyperparameters()
@@ -194,7 +198,6 @@ class DIR(pl.LightningModule):
         )
         self._store["reconstructions"] = outputs["reconstructions"].detach()
         self._store["objects"] = outputs["objects"].detach()
-        self._store["objects_where"] = outputs["objects_where"].detach()
         return outputs["reconstructions"]
 
     def forward(self, images: torch.Tensor) -> torch.Tensor:
@@ -207,7 +210,7 @@ class DIR(pl.LightningModule):
         self, images: torch.Tensor, z_present: torch.Tensor, objects_where: torch.Tensor
     ) -> torch.Tensor:
         """Transform ground-truth objects with given where coordinates."""
-        n_present = torch.sum(z_present, dim=1, dtype=torch.long).squeeze(-1)
+        n_present = torch.sum(z_present.bool(), dim=1, dtype=torch.long).squeeze(-1)
         objects_indices = torch.repeat_interleave(
             torch.arange(
                 n_present.numel(),
@@ -334,11 +337,11 @@ class DIR(pl.LightningModule):
 
         # per-object reconstructions
         if self._objects_coef:
-            _, z_present, *_ = representation
+            z_where, z_present, *_ = representation
             with pyro.plate("objects_data"):
                 objects = output["objects"]
                 self._store["objects"] = objects.detach()
-                objects_where = output["objects_where"]
+                objects_where = z_where.view(-1, z_where.shape[-1])
                 objects_obs = self.transform_objects(x, z_present, objects_where)
                 with poutine.scale(
                     scale=self.objects_coef(batch_size, objects_obs.shape[0])
@@ -441,8 +444,9 @@ class DIR(pl.LightningModule):
         )
 
         z_present = self._store["z_present"]
+        z_where = self._store["z_where"]
         objects = self._store["objects"]
-        objects_where = self._store["objects_where"]
+        objects_where = z_where.view(-1, z_where.shape[-1])
         objects_obs = self.transform_objects(images, z_present, objects_where)
 
         objects_loss = criterion(objects, objects_obs)

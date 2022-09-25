@@ -138,9 +138,6 @@ class DIR(pl.LightningModule):
         return self.encoder(inputs)
 
     def _sample_where(self, z_where: torch.Tensor) -> torch.Tensor:
-
-        self._store["z_where"] = z_where.detach()
-
         return z_where
 
     def _sample_present(self, z_present: torch.Tensor) -> torch.Tensor:
@@ -150,8 +147,6 @@ class DIR(pl.LightningModule):
             z_present = dist.Bernoulli(z_present).sample()
         else:
             z_present = self.threshold_z_present(z_present)
-
-        self._store["z_present"] = z_present.detach()
 
         return z_present
 
@@ -163,8 +158,6 @@ class DIR(pl.LightningModule):
         if self.is_what_probabilistic:  # else use loc
             z_what = dist.Normal(z_what, z_what_scale).sample()
 
-        self._store["z_what"] = z_what.detach()
-
         return z_what
 
     def _sample_depth(self, z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
@@ -175,19 +168,24 @@ class DIR(pl.LightningModule):
         if self.is_depth_probabilistic:  # else use loc
             z_depth = dist.Normal(z_depth, z_depth_scale).sample()
 
-        self._store["z_depth"] = z_depth.detach()
-
         return z_depth
 
     def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
         """Sample latents to create representation."""
-        return self.latent_handler(
+        z_where, z_present, z_what, z_depth = self.latent_handler(
             latents,
-            where_fn=self._sample_where,
+            where_fn=lambda z_where: z_where,
             present_fn=self._sample_present,
             what_fn=self._sample_what,
             depth_fn=self._sample_depth,
         )
+
+        self._store["z_where"] = z_where.detach()
+        self._store["z_present"] = z_present.detach()
+        self._store["z_what"] = z_what.detach()
+        self._store["z_depth"] = z_depth.detach()
+
+        return z_where, z_present, z_what, z_depth
 
     def decoder_forward(self, latents: DIRRepresentation) -> torch.Tensor:
         """Perform forward pass through decoder network."""
@@ -210,6 +208,7 @@ class DIR(pl.LightningModule):
         self, images: torch.Tensor, z_present: torch.Tensor, objects_where: torch.Tensor
     ) -> torch.Tensor:
         """Transform ground-truth objects with given where coordinates."""
+        batch_size, n_objects, *_ = z_present.shape
         n_present = torch.sum(z_present.bool(), dim=1, dtype=torch.long).squeeze(-1)
         objects_indices = torch.repeat_interleave(
             torch.arange(
@@ -366,8 +365,6 @@ class DIR(pl.LightningModule):
             else:
                 z_present = self.threshold_z_present(z_present)
 
-            self._store["z_present"] = z_present.detach()
-
             return z_present
 
         def _what(z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
@@ -410,14 +407,20 @@ class DIR(pl.LightningModule):
 
         with pyro.plate("data", batch_size):
             latents = self.encoder(x)
-            representation = self.latent_handler(
+            z_where, z_present, z_what, z_depth = self.latent_handler(
                 latents,
-                where_fn=self._sample_where,
+                where_fn=lambda z_where: z_where,
                 present_fn=_present,
                 what_fn=_what,
                 depth_fn=_depth,
             )
-            return representation
+
+            self._store["z_where"] = z_where.detach()
+            self._store["z_present"] = z_present.detach()
+            self._store["z_what"] = z_what.detach()
+            self._store["z_depth"] = z_depth.detach()
+
+            return z_where, z_present, z_what, z_depth
 
     def probabilistic_step(self, images: torch.Tensor, stage: str) -> torch.Tensor:
         """Training step with probabilistic model."""
@@ -564,9 +567,9 @@ class DIR(pl.LightningModule):
         n_objects = 10
         z_present = self._store["z_present"][[0]]
         z_depth = self._store["z_depth"][[0]]
-        n_present = z_present[0].sum(dtype=torch.long).item()
+        n_present = z_present[0].bool().sum(dtype=torch.long).item()
         objects = self._store["objects"][:n_present]
-        objects_depth = z_depth[torch.eq(z_present, 1)][:n_present]
+        objects_depth = z_depth[:n_present]
         _, sort_indices = torch.sort(objects_depth, descending=True)
         objects = objects.gather(
             dim=0, index=sort_indices.view(-1, 1, 1, 1).expand_as(objects)

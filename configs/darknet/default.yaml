@@ -8,7 +8,7 @@ training:
   batch: 64
   subdivisions: 8
   n_classes: 1
-  max_batches: 100000
+  max_batches: 20000
   pretrained: ${original_work_dir}/data/yolo/yolov4.conv.137
   cfg: ${original_work_dir}/data/yolo/yolov4.cfg.template
 

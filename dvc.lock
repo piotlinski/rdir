@@ -10,5 +10,5 @@ stages:
     cmd: mkdir data/mnist && tar -xzvf data/mnist.tar.gz -C data/mnist
     deps:
     - path: data/mnist.tar.gz
-      md5: bff18825f616cca9cb66156fae232980
-      size: 493482561
+      md5: b09ea7af3e2bdfb900299d246ab26b39
+      size: 183634247

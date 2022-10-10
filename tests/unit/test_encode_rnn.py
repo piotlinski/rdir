@@ -5,7 +5,12 @@ import pytest
 import torch
 from torch import nn
 
-from src.models.components.encode.rnn import SeqEncoder, SeqRNN, packed_forward
+from src.models.components.encode.rnn import (
+    PackedSequence,
+    SeqEncoder,
+    SeqRNN,
+    packed_forward,
+)
 
 
 @pytest.fixture
@@ -13,7 +18,7 @@ def sample_packed_sequence():
     """Sample packed sequence."""
     data = torch.rand(3, 16, 4, 4)
     batch_sizes = torch.tensor([2, 1])
-    return nn.utils.rnn.PackedSequence(data, batch_sizes)
+    return PackedSequence(data, batch_sizes)
 
 
 @pytest.mark.parametrize("out_channels", [4, 8])
@@ -66,26 +71,25 @@ def test_seq_rnn(sample_packed_sequence):
     )
 
 
-@pytest.mark.parametrize("latent_dim", [8, 16])
-def test_seq_encoder_dimensions(latent_dim, yolov4_ints, parsed_yolov4):
+def test_seq_encoder_dimensions(yolov4_ints, parsed_yolov4):
     """Verify seq encoder dimensions."""
     _, neck, head = parsed_yolov4
     inputs = {}
     for key, value in yolov4_ints.items():
-        inputs[key] = nn.utils.rnn.PackedSequence(
-            value.expand(2, -1, -1, -1), torch.tensor([1, 1])
-        )
+        inputs[key] = PackedSequence(value.expand(2, -1, -1, -1), torch.tensor([1, 1]))
 
     anchors = deepcopy(head.num_anchors)
     out_channels = deepcopy(neck.out_channels)
     seq_encoder = SeqEncoder(
         anchors=anchors,
         out_channels=out_channels,
-        latent_dim=latent_dim,
     )
 
     output = seq_encoder(inputs)
 
     for key in yolov4_ints.keys():
-        assert output[key].data.shape == (2, latent_dim, *yolov4_ints[key].shape[2:])
-        assert out_channels[key] == latent_dim
+        assert output[key].data.shape == (
+            2,
+            out_channels[key],
+            *yolov4_ints[key].shape[2:],
+        )

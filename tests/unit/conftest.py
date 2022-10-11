@@ -4,6 +4,8 @@ import pytest
 import torch
 from yolov4 import YOLOv4
 
+from src.models.components.decode.decoder import Decoder
+from src.models.components.encode.encoder import Encoder
 from src.models.components.encode.parse import parse_yolov4
 
 
@@ -73,3 +75,17 @@ def yolov4_mock(parsed_yolov4):
         "src.models.components.encode.encoder.parse_yolov4", return_value=parsed_yolov4
     ) as _mock:
         yield _mock
+
+
+@pytest.fixture
+@patch("src.models.components.encode.encoder.parse_yolov4")
+def encoder(parse_yolov4_mock, parsed_yolov4) -> Encoder:
+    """Encoder for testing DIR."""
+    parse_yolov4_mock.return_value = parsed_yolov4
+    return Encoder(yolo=("test", None), z_what_size=4)
+
+
+@pytest.fixture
+def decoder() -> Decoder:
+    """Decoder for testing DIR."""
+    return Decoder(z_what_size=4, image_size=192)

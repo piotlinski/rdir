@@ -94,6 +94,9 @@ class DIR(pl.LightningModule):
         self._objects_coef = objects_coef
         self._normalize_reconstructions = normalize_reconstructions
 
+        self._reset_non_present = reset_non_present
+        self._negative_percentage = negative_percentage
+
         self.latent_handler = LatentHandler(
             reset_non_present=reset_non_present, negative_percentage=negative_percentage
         )
@@ -464,12 +467,17 @@ class DIR(pl.LightningModule):
         return loss
 
     def common_run_step(
-        self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int, stage: str
+        self,
+        batch: Tuple[torch.Tensor, torch.Tensor],
+        batch_idx: int,
+        stage: str,
+        store: bool = True,
     ):
         """Common model running step for training and validation."""
         images, boxes = batch
-        self._store["images"] = images.detach()
-        self._store["boxes"] = boxes.detach()
+        if store:
+            self._store["images"] = images.detach()
+            self._store["boxes"] = boxes.detach()
         try:
             if self.is_deterministic:
                 loss = self.deterministic_step(images, stage=stage)

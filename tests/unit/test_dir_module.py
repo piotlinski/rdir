@@ -1,27 +1,10 @@
 """Tests for DIR model."""
-from unittest.mock import patch
-
 import pyro
 import pytest
 import torch
 
-from src.models.components.decode.decoder import Decoder
 from src.models.components.encode.encoder import Encoder
 from src.models.dir_module import DIR
-
-
-@pytest.fixture
-@patch("src.models.components.encode.encoder.parse_yolov4")
-def encoder(parse_yolov4_mock, parsed_yolov4) -> Encoder:
-    """Encoder for testing DIR."""
-    parse_yolov4_mock.return_value = parsed_yolov4
-    return Encoder(yolo=("test", None), z_what_size=4)
-
-
-@pytest.fixture
-def decoder() -> Decoder:
-    """Decoder for testing DIR."""
-    return Decoder(z_what_size=4, image_size=192)
 
 
 @pytest.mark.parametrize(

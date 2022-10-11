@@ -263,20 +263,10 @@ class RDIR(DIR):
     ):
         """Common model running step for training and validation."""
         images, boxes = batch
-        self._store["images"] = images.detach()
-        self._store["boxes"] = boxes.detach()
 
-        images = nn.utils.rnn.pack_padded_sequence(
-            images,
-            [images.shape[1]] * images.shape[0],
-            batch_first=True,
-            enforce_sorted=False,
-        )
-        boxes = nn.utils.rnn.pack_padded_sequence(
-            boxes,
-            [boxes.shape[1]] * boxes.shape[0],
-            batch_first=True,
-            enforce_sorted=False,
-        )
+        images = nn.utils.rnn.pack_sequence(images, enforce_sorted=False)
+        boxes = nn.utils.rnn.pack_sequence(boxes, enforce_sorted=False)
+        self._store["images"] = images.data.detach()
+        self._store["boxes"] = boxes.data.detach()
 
         return super().common_run_step((images, boxes), batch_idx, stage, store=False)

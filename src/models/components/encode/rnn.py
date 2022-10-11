@@ -185,7 +185,7 @@ class SeqEncoder(nn.Module):
         rnn = SeqRNN(
             self.rnn_cls,
             input_size=in_channels,
-            hidden_size=in_channels,
+            hidden_size=in_channels // self.n_cells,
             bidirectional=self.bidirectional,
             batch_first=True,
             num_layers=self.n_cells,

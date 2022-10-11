@@ -1,0 +1,4 @@
+outs:
+- md5: 83b4faae9c54fb0ab4f5926f206c95c3
+  size: 65306559
+  path: mnist-dir-tiny-deterministic.ckpt

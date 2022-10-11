@@ -1,2 +1,4 @@
 /mnist-dir-deterministic.ckpt
 /mnist-dir-tiny-deterministic.ckpt
+/mnist-dir-probabilistic.ckpt
+/mnist-dir-tiny-probabilistic.ckpt

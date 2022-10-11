@@ -1,0 +1,4 @@
+outs:
+- md5: d4bb9ec565c5693f5fb47c85399e5b66
+  size: 65306559
+  path: mnist-dir-tiny-probabilistic.ckpt

@@ -5,6 +5,7 @@ from typing import Tuple, Type
 import pyro
 import pyro.distributions as dist
 import torch
+import torch.nn.functional as F
 from pyro import poutine
 from torch import nn
 
@@ -253,6 +254,36 @@ class RDIR(DIR):
     def _store_train(self, images: torch.Tensor, boxes: torch.Tensor):
         self._store["images"] = images.data
         self._store["boxes"] = boxes.data
+
+    def deterministic_step(self, images: torch.Tensor, stage: str) -> torch.Tensor:
+        """Training step with deterministic model."""
+        criterion = F.mse_loss
+        reconstructions = self.forward(images)
+
+        reconstructions_loss = criterion(reconstructions.data, images.data)
+        self.log(
+            f"{stage}_loss_reconstructions",
+            reconstructions_loss,
+            prog_bar=False,
+            logger=True,
+        )
+
+        z_present = self._store["z_present"]
+        z_where = self._store["z_where"]
+        objects = self._store["objects"]
+        objects_where = z_where.view(-1, z_where.shape[-1])
+        objects_obs = self.transform_objects(images.data, z_present, objects_where)
+
+        objects_loss = criterion(objects, objects_obs)
+        self.log(f"{stage}_loss_objects", objects_loss, prog_bar=False, logger=True)
+
+        loss = (
+            self._reconstruction_coef * reconstructions_loss
+            + self._objects_coef * objects_loss
+        )
+        self.log(f"{stage}_loss", loss, prog_bar=False, logger=True)
+
+        return loss
 
     def common_run_step(
         self,

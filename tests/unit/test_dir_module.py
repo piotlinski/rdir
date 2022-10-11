@@ -15,7 +15,7 @@ from src.models.dir_module import DIR
 def encoder(parse_yolov4_mock, parsed_yolov4) -> Encoder:
     """Encoder for testing DIR."""
     parse_yolov4_mock.return_value = parsed_yolov4
-    return Encoder(yolo_cfg_file="test", z_what_size=4)
+    return Encoder(yolo=("test", None), z_what_size=4)
 
 
 @pytest.fixture
@@ -47,7 +47,7 @@ def test_dir_is_deterministic(
     """Check if deterministic flag is set correctly."""
     model = DIR(
         encoder=Encoder(
-            yolo_cfg_file="test",
+            yolo=("test", None),
             z_what_scale_const=z_what_scale_const,
             z_depth_scale_const=z_depth_scale_const,
         ),

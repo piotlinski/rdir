@@ -18,8 +18,9 @@ negative_percentage: 0.1
 encoder:
   _target_: src.models.components.encode.encoder.Encoder
 
-  yolo_cfg_file: ${darknet.config}
-  yolo_weights_file: ${darknet.weights}
+  yolo:
+    - ${darknet.config}
+    - ${darknet.weights}
 
   z_what_size: 32
   z_what_hidden: 3

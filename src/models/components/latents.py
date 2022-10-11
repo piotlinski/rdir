@@ -1,17 +1,16 @@
 """Latents handler for DIR."""
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 import torch
 from torch import nn
 from torch.nn import functional as F
 
-DIRLatents = Tuple[
-    torch.Tensor,
-    torch.Tensor,
-    Tuple[torch.Tensor, torch.Tensor],
-    Tuple[torch.Tensor, torch.Tensor],
-]
-DIRRepresentation = Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]
+from src.models.components.encode.rnn import PackedSequence
+
+Tensor = Union[torch.Tensor, PackedSequence]
+
+DIRLatents = Tuple[Tensor, Tensor, Tuple[Tensor, Tensor], Tuple[Tensor, Tensor]]
+DIRRepresentation = Tuple[Tensor, Tensor, Tensor, Tensor]
 
 
 class LatentHandler(nn.Module):

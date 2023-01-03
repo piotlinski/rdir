@@ -163,7 +163,7 @@ class RDIR(DIR):
             with pyro.plate("objects_data"):
                 objects = output["objects"].data
                 self._store["objects"] = objects.detach()
-                objects_where = z_where.data.view(-1, z_where.shape[-1])
+                objects_where = z_where.data.view(-1, z_where.data.shape[-1])
                 objects_obs = self.transform_objects(
                     x.data, z_present.data, objects_where
                 )

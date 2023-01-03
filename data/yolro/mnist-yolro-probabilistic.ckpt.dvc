@@ -1,4 +1,0 @@
-outs:
-- md5: f80b724b48ca02904bf25af4660e5a52
-  size: 689574028
-  path: mnist-dir-probabilistic.ckpt

@@ -1,4 +1,0 @@
-outs:
-- md5: a0cfb6be442c6d272a50c15c829c8ae1
-  size: 12129
-  path: mnist-yolov4.cfg

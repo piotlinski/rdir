@@ -55,7 +55,7 @@ def prepare_config(
             steps=f"{int(0.8*max_batches)},{int(0.9*max_batches)}",
         )
 
-    name = get_coolname(config)
+    name = get_coolname(config + data_dir)
     data_path = Path(data_dir)
     config_filename = f"{data_path.stem}-{model_version}-{name}.cfg"
     config_path = data_path.parent.joinpath(results_dir).joinpath(config_filename)

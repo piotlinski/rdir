@@ -1,11 +1,12 @@
-md5: 1f376100d2a386236d84844c81fcd8d7
+md5: 0a6919f6c91f4b062e981b0120727ce6
 frozen: true
 deps:
 - path: mnist.tar.gz
   repo:
     url: git@github.com:piotlinski/moving_multiscalemnist.git
-    rev_lock: 35d41c9b3b112a5e732f70824df1ae0413613b29
+    rev_lock: d15388dadb67b41ae288b9665f8d7c8d20a3c20b
+    rev: 128-single-scale
 outs:
-- md5: b09ea7af3e2bdfb900299d246ab26b39
-  size: 183634247
+- md5: e4bcb4a8967b34ba71641f7befa58adb
+  size: 139891190
   path: mnist.tar.gz

@@ -1,11 +1,11 @@
 stages:
-  extract_mnist:
-    cmd: mkdir data/mnist && tar -xzvf data/mnist.tar.gz -C data/mnist
-    deps:
-      - data/mnist.tar.gz
-    always_changed: true
-  extract_dsprites:
-    cmd: mkdir data/dsprites && tar -xzvf data/dsprites.tar.gz -C data/dsprites
-    deps:
-      - data/dsprites.tar.gz
-    always_changed: true
+  extract:
+    foreach:
+      - mnist
+      - dsprites
+      - multiscalemnist
+    do:
+      cmd: mkdir data/${item} && tar -xzvf data/${item}.tar.gz -C data/${item}
+      deps:
+        - data/${item}.tar.gz
+      always_changed: true

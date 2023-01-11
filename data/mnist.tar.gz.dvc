@@ -4,8 +4,8 @@ deps:
 - path: mnist.tar.gz
   repo:
     url: git@github.com:piotlinski/moving_multiscalemnist.git
-    rev_lock: d15388dadb67b41ae288b9665f8d7c8d20a3c20b
     rev: 128-single-scale
+    rev_lock: d15388dadb67b41ae288b9665f8d7c8d20a3c20b
 outs:
 - md5: e4bcb4a8967b34ba71641f7befa58adb
   size: 139891190

@@ -33,6 +33,7 @@ class Encoder(nn.Module):
         depth_enc: Optional[DepthEncoder] = None,
         cloned_neck: Optional[Neck] = None,
         cloned_backbone: Optional[Backbone] = None,
+        filter_classes: Optional[Tuple[int, ...]] = None,
     ):
         """
         :param yolo: path to yolov4 config file and optional weights
@@ -53,6 +54,7 @@ class Encoder(nn.Module):
         :param depth_enc: depth encoder from a trained model
         :param cloned_neck: neck from a trained model
         :param cloned_backbone: backbone from a trained model
+        :param filter_classes: filter classes from the prediction
         """
         super().__init__()
 
@@ -69,7 +71,7 @@ class Encoder(nn.Module):
         self.head.requires_grad_(train_head)
 
         self.where_head = WhereHead()
-        self.present_head = PresentHead()
+        self.present_head = PresentHead(filter_classes)
 
         self.what_enc = what_enc or WhatEncoder(
             latent_dim=z_what_size,

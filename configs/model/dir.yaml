@@ -36,6 +36,8 @@ encoder:
 
   clone_backbone: neck
 
+  filter_classes: NULL
+
 decoder:
   _target_: src.models.components.decode.decoder.Decoder
 

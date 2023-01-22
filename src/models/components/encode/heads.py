@@ -1,4 +1,6 @@
 """DIR heads for z_where and z_present."""
+from typing import Optional, Tuple
+
 import torch
 import torch.nn as nn
 
@@ -15,7 +17,16 @@ class WhereHead(nn.Module):
 class PresentHead(nn.Module):
     """Parser for head output to produce object presence."""
 
+    def __init__(self, classes: Optional[Tuple[int, ...]] = None):
+        """
+        :param classes: list of classes to filter
+        """
+        super().__init__()
+        self.classes = classes
+
     def forward(self, confs: torch.Tensor) -> torch.Tensor:
         """Perform forward pass."""
+        if self.classes is not None:
+            confs = confs[..., self.classes]
         max_values, _ = torch.max(confs, axis=-1, keepdim=True)
         return max_values

@@ -81,14 +81,15 @@ class YOLODataset(Dataset):
             img, xywh = self.get_original(img_path)
             img = cv2.resize(img, (self.width, self.height))
         else:
-            img, x1y1x2y2 = self.get_augmented(img_path)
+            img, x1y1x2y2 = self.get_augmented(img_path, reuse=False)
 
             xywh = self.x1y1x2y2_to_xywh(x1y1x2y2, (self.height, self.width))
 
         boxes = np.zeros([self.max_boxes, 5])
-        boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
-            : min(xywh.shape[0], self.max_boxes)
-        ]
+        if xywh.shape[0] > 0:
+            boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
+                : min(xywh.shape[0], self.max_boxes)
+            ]
 
         return img.astype(np.float32), boxes.astype(np.float32)
 
@@ -98,8 +99,7 @@ class YOLODataset(Dataset):
         img = cv2.imread(str(img_path))
         return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-    @staticmethod
-    def _load_ann(ann_path: Path) -> np.ndarray:
+    def _load_ann(self, ann_path: Path) -> np.ndarray:
         """Load annotation from file."""
         objs = []
         with ann_path.open("r") as fp:
@@ -107,15 +107,18 @@ class YOLODataset(Dataset):
                 contents = line.split(" ")
                 if contents:
                     class_id, x, y, w, h = map(literal_eval, contents)
-                    objs.append([x, y, w, h, class_id])
+                    if class_id < self.classes:
+                        objs.append([x, y, w, h, class_id])
         return np.array(objs)
 
-    def _get_augmentation_params(self, reuse: bool = False) -> Dict[str, Any]:
+    def _get_augmentation_params(
+        self, height: int, width: int, reuse: bool = False
+    ) -> Dict[str, Any]:
         """Draw or reuse augmentation parameters."""
         min_offset = 0.2
         if not reuse:
             target_height, target_width = (
-                np.array([self.height, self.width]) * self.jitter
+                np.array([height, width]) * self.jitter
             ).astype(int)
             self._augmentation = dict(
                 hue=rand_uniform_strong(-self.hue, self.hue),
@@ -212,7 +215,7 @@ class YOLODataset(Dataset):
         x1y1x2y2 = self.xywh_to_x1y1x2y2(xywh, (height, width))
 
         kwargs = dict(width=width, height=height)
-        kwargs.update(self._get_augmentation_params(reuse=reuse))
+        kwargs.update(self._get_augmentation_params(height, width, reuse=reuse))
 
         x1y1x2y2 = self._fill_truth_detection(x1y1x2y2, **kwargs)
         img = self._image_data_augmentation(img, x1y1x2y2, **kwargs)
@@ -225,6 +228,8 @@ class YOLODataset(Dataset):
     ) -> np.ndarray:
         """Convert XYWH boxes to X1Y1X2Y2 and (optionally) resize to image size."""
         x1y1x2y2 = xywh.copy()
+        if x1y1x2y2.shape[0] == 0:
+            return x1y1x2y2
 
         height, width = 1, 1
         if image_size is not None:
@@ -250,6 +255,8 @@ class YOLODataset(Dataset):
     ) -> np.ndarray:
         """Convert X1Y1X2Y2 boxes and (optionally) normalize to 0-1."""
         xywh = x1y1x2y2.copy()
+        if xywh.shape[0] == 0:
+            return xywh
 
         height, width = 1, 1
         if image_size is not None:

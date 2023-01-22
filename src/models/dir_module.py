@@ -10,9 +10,9 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb
 from torchmetrics import MeanSquaredError
 
-import wandb
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.latents import (
     LatentHandler,
@@ -623,10 +623,10 @@ class DIR(pl.LightningModule):
         n_present = z_present.bool().sum(dim=1, dtype=torch.long)
         objects = self._store["objects"].view(
             -1, z_present.shape[1], *self._store["objects"].shape[-3:]
-        )
+        )[:n_samples]
 
         visualizations = []
-        for i in range(len(objects)):
+        for i in range(len(z_present)):
             mask_i = positive_mask[i]
             z_depth_i = z_depth[i][mask_i].view(-1, 1)
             objects_i = objects[i]

@@ -20,15 +20,18 @@ class LatentHandler(nn.Module):
         self,
         reset_non_present: bool = False,
         negative_percentage: float = 0.1,
+        square_boxes: bool = False,
     ):
         """
         :param reset_non_present: set non-present latents to some ordinary ones
         :param negative_percentage: percentage of negative objects to be added
+        :param square_boxes: use square boxes instead of rectangular ones
         """
         super().__init__()
 
         self._reset_non_present = reset_non_present
         self._negative_percentage = negative_percentage
+        self._square_boxes = square_boxes
 
         self._z_present_eps = 1e-3
         self.register_buffer("_empty_loc", torch.tensor(0.0, dtype=torch.float))
@@ -120,6 +123,17 @@ class LatentHandler(nn.Module):
         z_depth = self.filter(z_depth, present_mask)
         return z_where, z_present, z_what, z_depth
 
+    def convert_to_square(self, z_where: torch.Tensor) -> torch.Tensor:
+        """Make rectangular boxes square."""
+        wh = (
+            (torch.argmax(z_where[..., 2:], dim=-1) + 2)
+            .unsqueeze(-1)
+            .expand(*z_where.shape[:-1], 2)
+        )
+        xy = wh.new_tensor([0, 1]).expand_as(wh)
+        index = torch.cat([xy, wh], dim=-1)
+        return torch.gather(z_where, -1, index=index)
+
     def forward(
         self,
         latents: DIRLatents,
@@ -131,6 +145,9 @@ class LatentHandler(nn.Module):
         if self._reset_non_present:
             latents = self.reset_non_present(latents)
         z_where, z_present, z_what, z_depth = latents
+
+        if self._square_boxes:
+            z_where = self.convert_to_square(z_where)
 
         representation = (
             where_fn(z_where),

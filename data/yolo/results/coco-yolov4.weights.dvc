@@ -1,0 +1,4 @@
+outs:
+- md5: 00a4878d05f4d832ab38861b32061283
+  size: 257717640
+  path: coco-yolov4.weights

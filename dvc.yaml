@@ -4,6 +4,7 @@ stages:
       - mnist
       - dsprites
       - multiscalemnist
+      - coco
     do:
       cmd: mkdir data/${item} && tar -xzvf data/${item}.tar.gz -C data/${item}
       deps:

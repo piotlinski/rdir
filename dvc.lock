@@ -18,3 +18,9 @@ stages:
     - path: data/mnist.tar.gz
       md5: b09ea7af3e2bdfb900299d246ab26b39
       size: 183634247
+  extract@coco:
+    cmd: mkdir data/coco && tar -xzvf data/coco.tar.gz -C data/coco
+    deps:
+    - path: data/coco.tar.gz
+      md5: fb4e458409dd63bbc169c3614eb4cb2e
+      size: 19890248854

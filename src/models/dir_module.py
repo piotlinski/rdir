@@ -10,9 +10,9 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from torchmetrics import MeanSquaredError
 
+import wandb
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.latents import (
     LatentHandler,
@@ -516,87 +516,143 @@ class DIR(pl.LightningModule):
 
     def visualize_inference(self) -> Dict[str, Any]:
         """Visualize model inference."""
-        image = self._store["images"][[0]]
-        boxes = self._store["boxes"][[0]]
-        reconstruction = self._store["reconstructions"][[0]]
-        z_where = self._store["z_where"][[0]]
-        z_present_p = self._store["z_present_p"][[0]]
-        z_depth = self._store["z_depth"][[0]]
-        v_image = PILImage.fromarray(
-            (image[0].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
-        )
-        v_reconstruction = PILImage.fromarray(
-            (reconstruction[0].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
-        )
-        v_inference = PILImage.new(
-            "RGB",
-            (
-                v_image.width + v_reconstruction.width,
-                max(v_image.height, v_reconstruction.height),
-            ),
-            "white",
-        )
-        v_inference.paste(v_image, (0, 0))
-        v_inference.paste(v_reconstruction, (v_image.width, 0))
+        n_samples = 10
 
-        gt_box_data = [
-            {
-                "position": {
-                    "middle": (box[0].item() / 2, box[1].item()),
-                    "width": box[2].item() / 2,
-                    "height": box[3].item(),
-                },
-                "class_id": 1,
-                "box_caption": "gt_object",
-            }
-            for box in boxes[0]
-        ]
-        pred_box_data = [
-            {
-                "position": {
-                    "middle": ((1 + where[0].item()) / 2, where[1].item()),
-                    "width": where[2].item() / 2,
-                    "height": where[3].item(),
-                },
-                "class_id": 1,
-                "box_caption": "pred_object",
-                "scores": {"depth": depth.item(), "present": present.item()},
-            }
-            for where, depth, present in zip(z_where[0], z_depth[0], z_present_p[0])
-        ]
-        v_boxes = {
-            "gt": {"box_data": gt_box_data, "class_labels": {1: "object"}},
-            "pred": {"box_data": pred_box_data, "class_labels": {1: "object"}},
-        }
-        return {
-            "inference": wandb.Image(
-                v_inference, boxes=v_boxes, caption="model inference"
+        image = self._store["images"][:n_samples]
+        boxes = self._store["boxes"][:n_samples]
+        reconstruction = self._store["reconstructions"][:n_samples]
+
+        positive_mask = self._store["z_present"][:n_samples] != -1
+        z_where = self._store["z_where"][:n_samples]
+        z_depth = self._store["z_depth"][:n_samples]
+
+        visualizations = []
+        for i in range(len(image)):
+            v_image = PILImage.fromarray(
+                (image[i].permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
             )
-        }
+            v_reconstruction = PILImage.fromarray(
+                (reconstruction[i].permute(1, 2, 0).cpu().numpy() * 255).astype(
+                    np.uint8
+                )
+            )
+            v_inference = PILImage.new(
+                "RGB",
+                (
+                    v_image.width + v_reconstruction.width,
+                    max(v_image.height, v_reconstruction.height),
+                ),
+                "white",
+            )
+            v_inference.paste(v_image, (0, 0))
+            v_inference.paste(v_reconstruction, (v_image.width, 0))
+
+            gt_box_data = [
+                {
+                    "position": {
+                        "middle": (box[0].item() / 2, box[1].item()),
+                        "width": box[2].item() / 2,
+                        "height": box[3].item(),
+                    },
+                    "class_id": 1,
+                    "box_caption": "box",
+                }
+                for box in boxes[i]
+                if (box != 0).any()
+            ]
+
+            pred_box_data = []
+
+            mask_i = positive_mask[i]
+            z_where_i = z_where[i]
+            z_depth_i = z_depth[i]
+            z_where_positive = z_where_i[mask_i.expand_as(z_where_i)].view(-1, 4)
+            z_where_negative = z_where_i[~mask_i.expand_as(z_where_i)].view(-1, 4)
+            z_depth_positive = z_depth_i[mask_i.expand_as(z_depth_i)].view(-1, 1)
+            z_depth_negative = z_depth_i[~mask_i.expand_as(z_depth_i)].view(-1, 1)
+            pred_box_data.extend(
+                [
+                    {
+                        "position": {
+                            "middle": ((1 + where[0].item()) / 2, where[1].item()),
+                            "width": where[2].item() / 2,
+                            "height": where[3].item(),
+                        },
+                        "class_id": 1,
+                        "box_caption": "positive",
+                        "scores": {"depth": depth.item()},
+                    }
+                    for where, depth in zip(z_where_positive, z_depth_positive)
+                ]
+            )
+            pred_box_data.extend(
+                [
+                    {
+                        "position": {
+                            "middle": ((1 + where[0].item()) / 2, where[1].item()),
+                            "width": where[2].item() / 2,
+                            "height": where[3].item(),
+                        },
+                        "class_id": 2,
+                        "box_caption": "negative",
+                        "scores": {"depth": depth.item()},
+                    }
+                    for where, depth in zip(z_where_negative, z_depth_negative)
+                ]
+            )
+            v_boxes = {
+                "gt": {"box_data": gt_box_data, "class_labels": {1: "object"}},
+                "prediction": {
+                    "box_data": pred_box_data,
+                    "class_labels": {1: "positive", 2: "negative"},
+                },
+            }
+            visualizations.append(
+                wandb.Image(v_inference, boxes=v_boxes, caption="model inference")
+            )
+        return {"inference": visualizations}
 
     def visualize_objects(self) -> Dict[str, Any]:
         """Visualize reconstructed objects."""
+        n_samples = 10
+
         n_objects = 10
-        z_present = self._store["z_present"][[0]]
-        z_depth = self._store["z_depth"][[0]]
-        n_present = z_present[0].bool().sum(dtype=torch.long).item()
-        objects = self._store["objects"][:n_present]
-        objects_depth = z_depth[:n_present]
-        _, sort_indices = torch.sort(objects_depth, descending=True)
-        objects = objects.gather(
-            dim=0, index=sort_indices.view(-1, 1, 1, 1).expand_as(objects)
+        z_present = self._store["z_present"][:n_samples]
+        positive_mask = z_present != -1
+        z_depth = self._store["z_depth"][:n_samples]
+        n_present = z_present.bool().sum(dim=1, dtype=torch.long)
+        objects = self._store["objects"].view(
+            -1, z_present.shape[1], *self._store["objects"].shape[-3:]
         )
-        v_objects = PILImage.new(
-            "RGB",
-            (objects.shape[3] * n_objects + n_objects - 1, objects.shape[2]),
-            "white",
-        )
-        for idx, obj in enumerate(objects[:n_objects]):
-            v_object = PILImage.fromarray(
-                (obj.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+
+        visualizations = []
+        for i in range(len(objects)):
+            mask_i = positive_mask[i]
+            z_depth_i = z_depth[i][mask_i].view(-1, 1)
+            objects_i = objects[i]
+            objects_mask_i = mask_i.view(*mask_i.shape, 1, 1).expand_as(objects_i)
+            objects_i = objects_i[objects_mask_i].view(-1, *objects_i.shape[-3:])[
+                : n_present[i]
+            ]
+            objects_depth_i = z_depth_i[: n_present[i]]
+            _, sort_indices = torch.sort(objects_depth_i, descending=True)
+            objects_i = objects_i.gather(
+                dim=0, index=sort_indices.view(-1, 1, 1, 1).expand_as(objects_i)
             )
-            v_objects.paste(v_object, (idx * (v_object.width + 1), 0))
-        return {"objects": wandb.Image(v_objects, caption="per-object reconstructions")}
+            v_objects = PILImage.new(
+                "RGB",
+                (objects_i.shape[3] * n_objects + n_objects - 1, objects_i.shape[2]),
+                "white",
+            )
+            for idx, obj in enumerate(objects_i[:n_objects]):
+                v_object = PILImage.fromarray(
+                    (obj.permute(1, 2, 0).cpu().numpy() * 255).astype(np.uint8)
+                )
+                v_objects.paste(v_object, (idx * (v_object.width + 1), 0))
+            visualizations.append(
+                wandb.Image(v_objects, caption="reconstructed objects")
+            )
+        return {"objects": visualizations}
 
     def log_latents(self) -> Dict[str, Any]:
         """Log latents to wandb."""

@@ -36,6 +36,7 @@ class YOLODataset(Dataset):
         files_path: str,
         is_train: bool = True,
         image_size: Optional[int] = 416,
+        max_boxes: int = 100,
     ):
         """
         :param dataset_dir: directory in which data reside
@@ -43,6 +44,7 @@ class YOLODataset(Dataset):
         :param files_path: path to yolov4 images list
         :param is_train: set dataset as train dataset
         :param image_size: model input image size
+        :param max_boxes: maximum number of boxes in an image
         """
         super().__init__()
 
@@ -58,9 +60,9 @@ class YOLODataset(Dataset):
         self.hue = parsed["hue"]
         self.classes = parsed["classes"]
         self.jitter = parsed["jitter"]
-        self.mosaic = bool(parsed["mosaic"])
+        self.mosaic = False
         self.n_mosaic = 3
-        self.max_boxes = 100
+        self.max_boxes = max_boxes
 
         self.files = []
         with self.dataset_dir.joinpath(files_path).open("r") as fp:
@@ -79,13 +81,7 @@ class YOLODataset(Dataset):
             img, xywh = self.get_original(img_path)
             img = cv2.resize(img, (self.width, self.height))
         else:
-            mosaic = self.mosaic
-            if random.randint(0, 1):
-                mosaic = False
-
-            img, x1y1x2y2 = self.get_augmented(img_path, reuse=False)
-            if mosaic:
-                img, x1y1x2y2 = self.get_mosaic(img, x1y1x2y2)
+            img, x1y1x2y2 = self.get_augmented(img_path)
 
             xywh = self.x1y1x2y2_to_xywh(x1y1x2y2, (self.height, self.width))
 
@@ -197,44 +193,6 @@ class YOLODataset(Dataset):
             blur=0,
         )
 
-    def _blend_truth_mosaic(
-        self, out_img: np.ndarray, img: np.ndarray, x1y1x2y2: np.ndarray, i: int
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Wrapper for blend_truth_mosaic."""
-        height, width, _ = img.shape
-        left = self._augmentation["left"]
-        right = self._augmentation["right"]
-        swidth = width - left - right
-        top = self._augmentation["top"]
-        bottom = self._augmentation["bottom"]
-        sheight = height - top - bottom
-        cut_x = self._augmentation["cut_x"]
-        cut_y = self._augmentation["cut_y"]
-
-        left_shift = int(min(cut_x, max(0, (-int(left) * self.width / swidth))))
-        top_shift = int(min(cut_y, max(0, (-int(top) * self.height / sheight))))
-        right_shift = int(
-            min((self.width - cut_x), max(0, (-int(right) * self.width / swidth)))
-        )
-        bot_shift = int(
-            min(self.height - cut_y, max(0, (-int(bottom) * self.height / sheight)))
-        )
-
-        return blend_truth_mosaic(
-            out_img=out_img,
-            img=img,
-            bboxes=x1y1x2y2.copy(),
-            i_mixup=i,
-            w=self.width,
-            h=self.height,
-            cut_x=cut_x,
-            cut_y=cut_y,
-            left_shift=left_shift,
-            right_shift=right_shift,
-            top_shift=top_shift,
-            bot_shift=bot_shift,
-        )
-
     def get_original(self, img_path: str) -> Tuple[np.ndarray, np.ndarray]:
         """Get original image and annotation."""
         ann_path = str(Path(img_path).with_suffix(".txt"))
@@ -260,22 +218,6 @@ class YOLODataset(Dataset):
         img = self._image_data_augmentation(img, x1y1x2y2, **kwargs)
 
         return img, x1y1x2y2
-
-    def get_mosaic(
-        self, img: np.ndarray, x1y1x2y2: np.ndarray
-    ) -> Tuple[np.ndarray, np.ndarray]:
-        """Get single augmented mosaic."""
-        out_img = np.zeros((self.height, self.width, 3))
-        out_x1y1x2y2 = []
-
-        for i in range(self.n_mosaic):
-            idx = random.randrange(len(self.files))
-            img, x1y1x2y2 = self.get_augmented(self.files[idx], reuse=True)
-
-            out_img, x1y1x2y2 = self._blend_truth_mosaic(out_img, img, x1y1x2y2, i)
-            out_x1y1x2y2.append(x1y1x2y2)
-
-        return out_img, np.concatenate(out_x1y1x2y2, axis=0)
 
     @staticmethod
     def xywh_to_x1y1x2y2(
@@ -364,6 +306,7 @@ class YOLODataModule(pl.LightningDataModule):
         batch_size: int,
         num_workers: int = 8,
         image_size: Optional[int] = 416,
+        max_boxes: int = 100,
         pin_memory: bool = True,
     ):
         """
@@ -372,6 +315,7 @@ class YOLODataModule(pl.LightningDataModule):
         :param batch_size: batch_size used in Data Module
         :param num_workers: number of workers used for loading data
         :param image_size: model input image size
+        :param max_boxes: maximum number of boxes in a single image
         :param pin_memory: pin memory while training
         """
         super().__init__()
@@ -381,6 +325,7 @@ class YOLODataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.image_size = image_size
+        self.max_boxes = max_boxes
         self.pin_memory = pin_memory
 
         self.train_dataset: Optional[Dataset] = None
@@ -413,6 +358,7 @@ class YOLODataModule(pl.LightningDataModule):
                 files_path="train.txt",
                 is_train=True,
                 image_size=self.image_size,
+                max_boxes=self.max_boxes,
             )
             self.val_dataset = YOLODataset(
                 dataset_dir=self.data_dir,
@@ -420,6 +366,7 @@ class YOLODataModule(pl.LightningDataModule):
                 files_path="test.txt",
                 is_train=False,
                 image_size=self.image_size,
+                max_boxes=self.max_boxes,
             )
 
     def train_dataloader(self) -> DataLoader:

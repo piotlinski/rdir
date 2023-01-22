@@ -14,7 +14,6 @@ from torch.utils.data.dataset import Dataset
 
 from src.datamodules.yolo import YOLODataset
 from src.utils import get_logger
-from src.vendor.yolov4.train import collate
 
 logger = get_logger(__name__)
 
@@ -24,7 +23,6 @@ class RDIRDataset(YOLODataset):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.mosaic = False
         self.files = self._split_sequences(self.files)
 
     @staticmethod
@@ -80,6 +78,7 @@ class RDIRDataModule(pl.LightningDataModule):
         batch_size: int,
         num_workers: int = 8,
         image_size: Optional[int] = 416,
+        max_boxes: int = 100,
         pin_memory: bool = True,
     ):
         """
@@ -88,6 +87,7 @@ class RDIRDataModule(pl.LightningDataModule):
         :param batch_size: batch_size used in Data Module
         :param num_workers: number of workers used for loading data
         :param image_size: model input image size
+        :param max_boxes: maximum number of boxes in a single image
         :param pin_memory: pin memory while training
         """
         super().__init__()
@@ -97,6 +97,7 @@ class RDIRDataModule(pl.LightningDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.image_size = image_size
+        self.max_boxes = max_boxes
         self.pin_memory = pin_memory
 
         self.train_dataset: Optional[Dataset] = None
@@ -129,6 +130,7 @@ class RDIRDataModule(pl.LightningDataModule):
                 files_path="train.txt",
                 is_train=True,
                 image_size=self.image_size,
+                max_boxes=self.max_boxes,
             )
             self.val_dataset = RDIRDataset(
                 dataset_dir=self.data_dir,
@@ -136,6 +138,7 @@ class RDIRDataModule(pl.LightningDataModule):
                 files_path="test.txt",
                 is_train=False,
                 image_size=self.image_size,
+                max_boxes=self.max_boxes,
             )
 
     def train_dataloader(self) -> DataLoader:

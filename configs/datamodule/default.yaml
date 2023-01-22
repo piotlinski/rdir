@@ -4,3 +4,4 @@ batch_size: 2
 num_workers: 0
 image_size: ${darknet.training.size}
 pin_memory: true
+max_boxes: 100

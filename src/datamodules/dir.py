@@ -80,6 +80,7 @@ class RDIRDataModule(pl.LightningDataModule):
         image_size: Optional[int] = 416,
         max_boxes: int = 100,
         pin_memory: bool = True,
+        prepare: bool = False,
     ):
         """
         :param data_dir: directory with dataset
@@ -89,6 +90,7 @@ class RDIRDataModule(pl.LightningDataModule):
         :param image_size: model input image size
         :param max_boxes: maximum number of boxes in a single image
         :param pin_memory: pin memory while training
+        :param prepare: prepare data if necessary
         """
         super().__init__()
 
@@ -99,6 +101,7 @@ class RDIRDataModule(pl.LightningDataModule):
         self.image_size = image_size
         self.max_boxes = max_boxes
         self.pin_memory = pin_memory
+        self.prepare = prepare
 
         self.train_dataset: Optional[Dataset] = None
         self.val_dataset: Optional[Dataset] = None
@@ -107,6 +110,8 @@ class RDIRDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         """Decompress data if necessary."""
+        if not self.prepare:
+            return
         data_path = Path(self.data_dir)
         files = set(str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*"))
 

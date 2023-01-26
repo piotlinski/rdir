@@ -26,6 +26,9 @@ trainer:
   precision: 16
   gpus: 1
   auto_select_gpus: True
+  limit_train_batches: 0.2
+  limit_val_batches: 0.2
+  limit_test_batches: 0.2
 
 darknet:
   config: ${hydra:runtime.cwd}/data/yolo/results/coco-yolov4.cfg

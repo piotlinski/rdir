@@ -7,7 +7,6 @@ torchmetrics>=0.7.0
 # --------- hydra --------- #
 hydra-core>=1.1.0
 hydra-colorlog>=1.1.0
-hydra-optuna-sweeper>=1.1.0
 
 # --------- loggers --------- #
 wandb

@@ -29,16 +29,3 @@ def test_default_sweep(base_command):
         "++trainer.fast_dev_run=true",
     ]
     run_command(command)
-
-
-@pytest.mark.slow
-def test_optuna_sweep(base_command):
-    """Test Optuna sweeper."""
-    command = [
-        *base_command,
-        "-m",
-        "hparams_search=mnist_optuna",
-        "trainer=default",
-        "++trainer.fast_dev_run=true",
-    ]
-    run_command(command)

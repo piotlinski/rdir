@@ -1,0 +1,4 @@
+outs:
+- md5: 5de5a1c01331bd3862b860f053be7732
+  size: 256209840
+  path: multiscalemnist-yolov4-crafty-oxpecker.weights

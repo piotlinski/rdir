@@ -1,2 +1,6 @@
 /coco-yolov4.cfg
 /coco-yolov4.weights
+/mnist-yolov4-pristine-gibbon.cfg
+/multiscalemnist-yolov4-crafty-oxpecker.cfg
+/mnist-yolov4-pristine-gibbon.weights
+/multiscalemnist-yolov4-crafty-oxpecker.weights

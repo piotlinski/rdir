@@ -1,0 +1,4 @@
+outs:
+- md5: cbb76dbe3e046685bd1e12d62e6a649f
+  size: 12120
+  path: mnist-yolov4-pristine-gibbon.cfg

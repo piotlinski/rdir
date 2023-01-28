@@ -1,0 +1,4 @@
+outs:
+- md5: 8eb8b5af105984d700643584fbf7e657
+  size: 256209840
+  path: mnist-yolov4-pristine-gibbon.weights

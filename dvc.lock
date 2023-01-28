@@ -24,3 +24,9 @@ stages:
     - path: data/coco.tar.gz
       md5: fb4e458409dd63bbc169c3614eb4cb2e
       size: 19890248854
+  extract@coco_small:
+    cmd: mkdir data/coco_small && tar -xzvf data/coco_small.tar.gz -C data/coco_small
+    deps:
+    - path: data/coco_small.tar.gz
+      md5: e83eee8c56cffe65c2abd95d6c3644ff
+      size: 12156944716

@@ -5,6 +5,7 @@ stages:
       - dsprites
       - multiscalemnist
       - coco
+      - coco_small
     do:
       cmd: mkdir data/${item} && tar -xzvf data/${item}.tar.gz -C data/${item}
       deps:

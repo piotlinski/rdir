@@ -1,0 +1,4 @@
+outs:
+- md5: e83eee8c56cffe65c2abd95d6c3644ff
+  size: 12156944716
+  path: coco_small.tar.gz

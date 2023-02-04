@@ -86,4 +86,4 @@ class WhereTransformer(nn.Module):
             transformed_images = decoded_images.view(
                 -1, channels, self.image_size, self.image_size
             )
-        return transformed_images
+        return torch.clamp(transformed_images, 0.0, 1.0)

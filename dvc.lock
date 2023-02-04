@@ -30,3 +30,33 @@ stages:
     - path: data/coco_small.tar.gz
       md5: e83eee8c56cffe65c2abd95d6c3644ff
       size: 12156944716
+  extract@movi_a:
+    cmd: mkdir data/movi_a && tar -xzvf data/movi_a.tar.gz -C data/movi_a
+    deps:
+    - path: data/movi_a.tar.gz
+      md5: af2955460ae64f3e522b4cc75063a412
+      size: 588095682
+  extract@movi_b:
+    cmd: mkdir data/movi_b && tar -xzvf data/movi_b.tar.gz -C data/movi_b
+    deps:
+    - path: data/movi_b.tar.gz
+      md5: 097e5079dd80a5d7a6e947cbeb9d8467
+      size: 762505868
+  extract@movi_c:
+    cmd: mkdir data/movi_c && tar -xzvf data/movi_c.tar.gz -C data/movi_c
+    deps:
+    - path: data/movi_c.tar.gz
+      md5: 8bd58f28251a22c454ab2f325b68bd0f
+      size: 1861679500
+  extract@movi_d:
+    cmd: mkdir data/movi_d && tar -xzvf data/movi_d.tar.gz -C data/movi_d
+    deps:
+    - path: data/movi_d.tar.gz
+      md5: e700570d7a4ac2ea8e3ad5cb57e8340f
+      size: 2049752740
+  extract@movi_e:
+    cmd: mkdir data/movi_e && tar -xzvf data/movi_e.tar.gz -C data/movi_e
+    deps:
+    - path: data/movi_e.tar.gz
+      md5: b478ca6cbc9a65e2fb23a3139d643021
+      size: 2375456740

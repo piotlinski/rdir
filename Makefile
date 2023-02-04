@@ -20,4 +20,4 @@ build.rdir:  ## Build dir docker image
 	docker build --rm --build-arg WANDB_API_KEY=$(WANDB_API_KEY) -f docker/rdir.dockerfile -t $(RDIR_DOCKER_IMAGE) .
 
 shell.dir:  ## Run shell in dir docker container
-	docker run -it --rm --ipc=host -v $(PWD):/workspace -e LOCAL_USER_ID=$(LOCAL_USER_ID) -e LOCAL_GROUP_ID=$(LOCAL_GROUP_ID) --gpus '$(GPUS)' --cpus 32 $(RDIR_DOCKER_IMAGE)
+	docker run -it --rm --ipc=host -v $(PWD):/workspace -e LOCAL_USER_ID=$(LOCAL_USER_ID) -e LOCAL_GROUP_ID=$(LOCAL_GROUP_ID) --gpus '$(GPUS)' --cpus 16 $(RDIR_DOCKER_IMAGE)

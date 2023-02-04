@@ -1,0 +1,7 @@
+defaults:
+  - default.yaml
+
+training:
+  n_classes: 3
+  data_dir: ${original_work_dir}/data/movi_a
+  max_batches: 6000

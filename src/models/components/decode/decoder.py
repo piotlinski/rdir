@@ -17,12 +17,14 @@ class Decoder(nn.Module):
         self,
         z_what_size: int = 64,
         decoded_size: int = 64,
+        decoder_channels: int = 64,
         image_size: int = 416,
         train_what: bool = True,
     ):
         """
         :param z_what_size: z_what latent representation size
         :param decoded_size: reconstructed object size
+        :param decoder_channels: number of channels in decoder
         :param image_size: reconstructed image size
         :param train_what: perform z_what decoder training
         """
@@ -31,7 +33,7 @@ class Decoder(nn.Module):
         self.image_size = image_size
 
         self.what_dec = WhatDecoder(
-            latent_dim=z_what_size, decoded_size=decoded_size
+            latent_dim=z_what_size, decoded_size=decoded_size, channels=decoder_channels
         ).requires_grad_(train_what)
         self.where_stn = WhereTransformer(image_size=image_size)
 

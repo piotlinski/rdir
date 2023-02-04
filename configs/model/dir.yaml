@@ -43,5 +43,6 @@ decoder:
 
   z_what_size: ${model.encoder.z_what_size}
   decoded_size: 32
+  decoder_channels: 32
   image_size: ${darknet.training.size}
   train_what: true

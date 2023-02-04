@@ -48,7 +48,7 @@ class WhatEncoder(nn.Module):
 
         layers = [
             nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(True),
         ]
         for _ in range(self.num_hidden):
             layers.extend(
@@ -60,7 +60,7 @@ class WhatEncoder(nn.Module):
                         stride=1,
                         padding=1,
                     ),
-                    nn.LeakyReLU(),
+                    nn.LeakyReLU(True),
                 ]
             )
         layers.append(

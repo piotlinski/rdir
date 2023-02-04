@@ -35,7 +35,7 @@ class WhatDecoder(nn.Module):
         for p in range(power, 0, -1):
             segment = [
                 nn.BatchNorm2d(self.channels * 2**p),
-                nn.LeakyReLU(),
+                nn.LeakyReLU(True),
                 nn.ConvTranspose2d(
                     self.channels * 2**p,
                     self.channels * 2 ** (p - 1),
@@ -48,7 +48,7 @@ class WhatDecoder(nn.Module):
             layers.extend(segment)
         final_segment = [
             nn.BatchNorm2d(self.channels),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(True),
             nn.ConvTranspose2d(
                 self.channels,
                 3,

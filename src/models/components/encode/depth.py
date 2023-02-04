@@ -49,7 +49,7 @@ class DepthEncoder(nn.Module):
                     stride=1,
                     padding=1,
                 ),
-                nn.LeakyReLU(),
+                nn.LeakyReLU(True),
                 nn.Conv2d(
                     in_channels=hidden_dim, out_channels=num_anchors, kernel_size=1
                 ),

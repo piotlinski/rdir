@@ -166,7 +166,7 @@ class SeqEncoder(nn.Module):
                 kernel_size=self.kernel_size,
                 padding=self.kernel_size // 2,
             ),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(True),
         ]
         for _ in range(self.num_hidden - 1):
             pre_layers.extend(
@@ -177,7 +177,7 @@ class SeqEncoder(nn.Module):
                         kernel_size=self.kernel_size,
                         padding=self.kernel_size // 2,
                     ),
-                    nn.LeakyReLU(),
+                    nn.LeakyReLU(True),
                 ]
             )
         pre = nn.Sequential(*pre_layers)
@@ -198,7 +198,7 @@ class SeqEncoder(nn.Module):
                 kernel_size=self.kernel_size,
                 padding=self.kernel_size // 2,
             ),
-            nn.LeakyReLU(),
+            nn.LeakyReLU(True),
         ]
         post = nn.Sequential(*post_layers)
         return nn.ModuleList([pre, rnn, post])

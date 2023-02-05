@@ -59,7 +59,6 @@ class DIR(pl.LightningModule):
         normalize_reconstructions: bool = False,
         reset_non_present: bool = False,
         negative_percentage: bool = 0.1,
-        square_boxes: bool = False,
     ):
         """
         :param learning_rate: learning rate used for training the model
@@ -74,7 +73,6 @@ class DIR(pl.LightningModule):
         :param normalize_reconstructions: normalize reconstructions before scoring
         :param reset_non_present: set non-present latents to some ordinary ones
         :param negative_percentage: percentage of negative samples
-        :param square_boxes: use square bounding boxes
         """
         super().__init__()
 
@@ -102,7 +100,6 @@ class DIR(pl.LightningModule):
         self.latent_handler = LatentHandler(
             reset_non_present=reset_non_present,
             negative_percentage=negative_percentage,
-            square_boxes=square_boxes,
         )
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 

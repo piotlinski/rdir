@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class WhereTransformer(nn.Module):
     """Transforms decoded objects using where boxes."""
 
-    def __init__(self, image_size: int, inverse: bool = False):
+    def __init__(self, image_size: int, inverse: bool = False, square: bool = False):
         """
         :param image_size: size of transformed object image
         :param inverse: apply inverse transformation
@@ -16,6 +16,19 @@ class WhereTransformer(nn.Module):
 
         self.image_size = image_size
         self.inverse = inverse
+        self.square = square
+
+    @staticmethod
+    def convert_to_square(z_where: torch.Tensor) -> torch.Tensor:
+        """Make rectangular boxes square."""
+        wh = (
+            (torch.argmax(z_where[..., 2:], dim=-1) + 2)
+            .unsqueeze(-1)
+            .expand(*z_where.shape[:-1], 2)
+        )
+        xy = wh.new_tensor([0, 1]).expand_as(wh)
+        index = torch.cat([xy, wh], dim=-1)
+        return torch.gather(z_where, -1, index=index)
 
     @staticmethod
     def scale_boxes(where_boxes: torch.Tensor) -> torch.Tensor:
@@ -73,6 +86,8 @@ class WhereTransformer(nn.Module):
         n_objects = decoded_images.shape[0]
         channels = decoded_images.shape[1]
         if where_boxes.numel():
+            if self.square:
+                where_boxes = self.convert_to_square(where_boxes)
             scaled_boxes = self.scale_boxes(where_boxes)
             theta = self.convert_boxes_to_theta(where_boxes=scaled_boxes)
             if self.inverse:

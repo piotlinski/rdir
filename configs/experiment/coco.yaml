@@ -40,7 +40,6 @@ darknet:
 model:
   learning_rate: 1e-4
   negative_percentage: 0
-  square_boxes: True
   encoder:
     z_what_scale_const: 0
     z_depth_scale_const: 0

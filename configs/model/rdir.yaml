@@ -18,7 +18,6 @@ dir:
   normalize_reconstructions: true
   reset_non_present: false
   negative_percentage: 0.2
-  square_boxes: false
 
 n_rnn_hidden: 2
 rnn_kernel_size: 5

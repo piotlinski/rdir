@@ -18,6 +18,7 @@ class Decoder(nn.Module):
         z_what_size: int = 64,
         decoded_size: int = 64,
         decoder_channels: int = 64,
+        square_boxes: bool = False,
         image_size: int = 416,
         train_what: bool = True,
     ):
@@ -25,6 +26,7 @@ class Decoder(nn.Module):
         :param z_what_size: z_what latent representation size
         :param decoded_size: reconstructed object size
         :param decoder_channels: number of channels in decoder
+        :param square_boxes: use square bounding boxes
         :param image_size: reconstructed image size
         :param train_what: perform z_what decoder training
         """
@@ -35,7 +37,7 @@ class Decoder(nn.Module):
         self.what_dec = WhatDecoder(
             latent_dim=z_what_size, decoded_size=decoded_size, channels=decoder_channels
         ).requires_grad_(train_what)
-        self.where_stn = WhereTransformer(image_size=image_size)
+        self.where_stn = WhereTransformer(image_size=image_size, square=square_boxes)
 
         self.register_buffer("_no_object", torch.tensor([0], dtype=torch.float))
 

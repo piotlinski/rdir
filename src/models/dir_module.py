@@ -490,6 +490,17 @@ class DIR(pl.LightningModule):
         except ValueError:
             loss = torch.tensor(float("NaN"))
 
+        if batch_idx == 0 and self.logger is not None:
+            with torch.no_grad():
+                self.logger.experiment.log(
+                    {
+                        **self.visualize_inference(stage),
+                        **self.visualize_objects(stage),
+                        **self.log_latents(stage),
+                    },
+                    step=self.global_step,
+                )
+
         return loss
 
     def training_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int):
@@ -499,19 +510,9 @@ class DIR(pl.LightningModule):
     def validation_step(self, batch: Tuple[torch.Tensor, torch.Tensor], batch_idx: int):
         """Step for validation."""
         loss = self.common_run_step(batch, batch_idx, stage="val")
-        if batch_idx == 0 and self.logger is not None:
-            with torch.no_grad():
-                self.logger.experiment.log(
-                    {
-                        **self.visualize_inference(),
-                        **self.visualize_objects(),
-                        **self.log_latents(),
-                    },
-                    step=self.global_step,
-                )
         return loss
 
-    def visualize_inference(self) -> Dict[str, Any]:
+    def visualize_inference(self, stage: str) -> Dict[str, Any]:
         """Visualize model inference."""
         n_samples = 10
 
@@ -607,9 +608,9 @@ class DIR(pl.LightningModule):
             visualizations.append(
                 wandb.Image(v_inference, boxes=v_boxes, caption="model inference")
             )
-        return {"inference": visualizations}
+        return {f"{stage}_inference": visualizations}
 
-    def visualize_objects(self) -> Dict[str, Any]:
+    def visualize_objects(self, stage: str) -> Dict[str, Any]:
         """Visualize reconstructed objects."""
         n_samples = 10
 
@@ -649,17 +650,17 @@ class DIR(pl.LightningModule):
             visualizations.append(
                 wandb.Image(v_objects, caption="reconstructed objects")
             )
-        return {"objects": visualizations}
+        return {f"{stage}_objects": visualizations}
 
-    def log_latents(self) -> Dict[str, Any]:
+    def log_latents(self, stage: str) -> Dict[str, Any]:
         """Log latents to wandb."""
         latents_names = [
-            "z_where",
-            "z_present_p",
-            "z_what_loc",
-            "z_what_scale",
-            "z_depth_loc",
-            "z_depth_scale",
+            f"{stage}_z_where",
+            f"{stage}_z_present_p",
+            f"{stage}_z_what_loc",
+            f"{stage}_z_what_scale",
+            f"{stage}_z_depth_loc",
+            f"{stage}_z_depth_scale",
         ]
         latents = {}
         for latent_name in latents_names:

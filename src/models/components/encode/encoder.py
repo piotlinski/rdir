@@ -35,7 +35,8 @@ class Encoder(nn.Module):
         cloned_neck: Optional[Neck] = None,
         cloned_backbone: Optional[Backbone] = None,
         filter_classes: Optional[Tuple[int, ...]] = None,
-        nms_threshold: float = -1,
+        nms_threshold: float = 0.45,
+        nms_always: bool = False,
     ):
         """
         :param yolo: path to yolov4 config file and optional weights
@@ -57,7 +58,8 @@ class Encoder(nn.Module):
         :param cloned_neck: neck from a trained model
         :param cloned_backbone: backbone from a trained model
         :param filter_classes: filter classes from the prediction
-        :param nms_threshold: non-maximum suppression threshold (negative for no NMS)
+        :param nms_threshold: non-maximum suppression threshold
+        :param nms_always: run NMS on train and val
         """
         super().__init__()
 
@@ -101,11 +103,8 @@ class Encoder(nn.Module):
                 self.cloned_backbone = cloned_backbone or deepcopy(self.backbone)
                 self.cloned_backbone.requires_grad_(True)
 
-        self.nms = False
-        self.nms_threshold = 0.0
-        if nms_threshold >= 0:
-            self.nms = True
-            self.nms_threshold = nms_threshold
+        self.nms_threshold = nms_threshold
+        self.nms_always = nms_always
 
     @staticmethod
     def xywh_to_x1y1x2y2(boxes: torch.Tensor) -> torch.Tensor:
@@ -146,7 +145,7 @@ class Encoder(nn.Module):
         z_where = self.where_head(boxes)
         z_present = self.present_head(confs)
 
-        if self.nms:
+        if self.nms_always or not self.training:
             z_present = self.run_nms(z_where, z_present)
 
         if self.cloned_backbone is not None:

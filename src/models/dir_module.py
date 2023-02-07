@@ -49,7 +49,7 @@ class DIR(pl.LightningModule):
         encoder: nn.Module,
         decoder: nn.Module,
         learning_rate: float = 1e-3,
-        z_present_threshold: float = -1.0,
+        z_present_threshold: float = 0.2,
         z_present_p_prior: float = 0.1,
         reconstruction_coef: float = 1.0,
         what_coef: float = 1.0,
@@ -62,8 +62,7 @@ class DIR(pl.LightningModule):
     ):
         """
         :param learning_rate: learning rate used for training the model
-        :param z_present_threshold: sets z_present threshold instead of sampling
-            (negative for sampling)
+        :param z_present_threshold: sets z_present threshold for validation
         :param z_present_p_prior: prior value for sampling z_present
         :param reconstruction_coef: reconstruction error component coef (entire image)
         :param what_coef: z_what distribution component coef
@@ -147,7 +146,7 @@ class DIR(pl.LightningModule):
     def _sample_present(self, z_present: torch.Tensor) -> torch.Tensor:
         self._store["z_present_p"] = z_present.detach()
 
-        if self.z_present_threshold < 0:
+        if self.training:
             z_present = dist.Bernoulli(z_present).sample()
         else:
             z_present = self.threshold_z_present(z_present)
@@ -262,7 +261,7 @@ class DIR(pl.LightningModule):
         def _present(z_present: torch.Tensor) -> torch.Tensor:
             n_objects = z_present.shape[1]
 
-            if self.z_present_threshold < 0:
+            if self.training:
                 z_present_p = x.new_full(
                     (batch_size, n_objects, 1), fill_value=self.z_present_p_prior
                 )
@@ -361,7 +360,7 @@ class DIR(pl.LightningModule):
 
             self._store["z_present_p"] = z_present.detach()
 
-            if self.z_present_threshold < 0:
+            if self.training:
                 with poutine.scale(scale=self.present_coef(batch_size, n_objects)):
                     z_present = pyro.sample(
                         "z_present", dist.Bernoulli(z_present).to_event(2)

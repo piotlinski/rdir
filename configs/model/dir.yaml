@@ -2,7 +2,7 @@ _target_: src.models.dir_module.DIR
 
 learning_rate: 1e-4
 
-z_present_threshold: -1
+z_present_threshold: 0.2
 z_present_p_prior: 0.1
 
 reconstruction_coef: 5

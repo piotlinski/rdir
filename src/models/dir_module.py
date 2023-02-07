@@ -132,6 +132,13 @@ class DIR(pl.LightningModule):
             and self.z_present_threshold > 0
         )
 
+    @property
+    def use_present_thresholding(self) -> bool:
+        """Determines if z_present thresholding is used."""
+        if self.encoder.nms_always:
+            return True
+        return not self.training
+
     def threshold_z_present(self, z_present: torch.Tensor) -> torch.Tensor:
         """Threshold z_present to binary."""
         return torch.where(z_present > self.z_present_threshold, 1.0, 0.0)
@@ -146,10 +153,10 @@ class DIR(pl.LightningModule):
     def _sample_present(self, z_present: torch.Tensor) -> torch.Tensor:
         self._store["z_present_p"] = z_present.detach()
 
-        if self.training:
-            z_present = dist.Bernoulli(z_present).sample()
-        else:
+        if self.use_present_thresholding:
             z_present = self.threshold_z_present(z_present)
+        else:
+            z_present = dist.Bernoulli(z_present).sample()
 
         return z_present
 
@@ -261,7 +268,9 @@ class DIR(pl.LightningModule):
         def _present(z_present: torch.Tensor) -> torch.Tensor:
             n_objects = z_present.shape[1]
 
-            if self.training:
+            if self.use_present_thresholding:
+                z_present = self.threshold_z_present(z_present)
+            else:
                 z_present_p = x.new_full(
                     (batch_size, n_objects, 1), fill_value=self.z_present_p_prior
                 )
@@ -269,8 +278,6 @@ class DIR(pl.LightningModule):
                     z_present = pyro.sample(
                         "z_present", dist.Bernoulli(z_present_p).to_event(2)
                     )
-            else:
-                z_present = self.threshold_z_present(z_present)
 
             return z_present
 
@@ -360,13 +367,13 @@ class DIR(pl.LightningModule):
 
             self._store["z_present_p"] = z_present.detach()
 
-            if self.training:
+            if self.use_present_thresholding:
+                z_present = self.threshold_z_present(z_present)
+            else:
                 with poutine.scale(scale=self.present_coef(batch_size, n_objects)):
                     z_present = pyro.sample(
                         "z_present", dist.Bernoulli(z_present).to_event(2)
                     )
-            else:
-                z_present = self.threshold_z_present(z_present)
 
             return z_present
 

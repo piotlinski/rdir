@@ -37,6 +37,8 @@ encoder:
 
   filter_classes: NULL
 
+  nms_threshold: 0.35
+
 decoder:
   _target_: src.models.components.decode.decoder.Decoder
 

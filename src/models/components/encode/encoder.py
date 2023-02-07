@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
+from torchvision import ops
 
 from src.models.components.encode.depth import DepthEncoder
 from src.models.components.encode.heads import PresentHead, WhereHead
@@ -34,6 +35,7 @@ class Encoder(nn.Module):
         cloned_neck: Optional[Neck] = None,
         cloned_backbone: Optional[Backbone] = None,
         filter_classes: Optional[Tuple[int, ...]] = None,
+        nms_threshold: float = -1,
     ):
         """
         :param yolo: path to yolov4 config file and optional weights
@@ -55,6 +57,7 @@ class Encoder(nn.Module):
         :param cloned_neck: neck from a trained model
         :param cloned_backbone: backbone from a trained model
         :param filter_classes: filter classes from the prediction
+        :param nms_threshold: non-maximum suppression threshold (negative for no NMS)
         """
         super().__init__()
 
@@ -98,6 +101,37 @@ class Encoder(nn.Module):
                 self.cloned_backbone = cloned_backbone or deepcopy(self.backbone)
                 self.cloned_backbone.requires_grad_(True)
 
+        self.nms = False
+        self.nms_threshold = 0.0
+        if nms_threshold >= 0:
+            self.nms = True
+            self.nms_threshold = nms_threshold
+
+    @staticmethod
+    def xywh_to_x1y1x2y2(boxes: torch.Tensor) -> torch.Tensor:
+        """Convert xywh boxes to x1y1x2y2 boxes."""
+        x1y1 = boxes[..., :2] - boxes[..., 2:] / 2
+        x2y2 = boxes[..., :2] + boxes[..., 2:] / 2
+        return torch.cat((x1y1, x2y2), dim=-1)
+
+    def run_nms(self, z_where: torch.Tensor, z_present: torch.Tensor) -> torch.Tensor:
+        """Run batched non-maximum suppression on latents."""
+        batch_size, n_anchors, _ = z_where.shape
+        boxes = self.xywh_to_x1y1x2y2(z_where)
+        indices = torch.arange(batch_size, device=z_where.device)
+        indices = indices[:, None].expand(batch_size, n_anchors).flatten()
+
+        boxes_flat = boxes.flatten(0, 1)
+        scores_flat = z_present.flatten()
+        indices_flat = ops.boxes.batched_nms(
+            boxes_flat, scores_flat, indices, self.nms_threshold
+        )
+
+        mask = torch.zeros_like(z_present).flatten()
+        mask[indices_flat] = 1
+        mask = mask.view_as(z_present)
+        return z_present * mask
+
     def forward(self, images: torch.Tensor) -> DIRLatents:
         """Encode images to latent representation.
 
@@ -111,6 +145,9 @@ class Encoder(nn.Module):
         boxes, confs = self.head(intermediates)
         z_where = self.where_head(boxes)
         z_present = self.present_head(confs)
+
+        if self.nms:
+            z_present = self.run_nms(z_where, z_present)
 
         if self.cloned_backbone is not None:
             features = self.cloned_backbone(images)

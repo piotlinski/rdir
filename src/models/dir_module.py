@@ -673,6 +673,15 @@ class DIR(pl.LightningModule):
             if (latent := self._store.get(latent_name)) is None:
                 continue
             latents[latent_name] = wandb.Histogram(latent.cpu())
+
+        z_present = self._store["z_present"]
+        positive = torch.count_nonzero(z_present > 0, dim=1)
+        negative = torch.count_nonzero(z_present < 0, dim=1)
+        total = torch.count_nonzero(z_present != 0, dim=1)
+        latents[f"{stage}_n_positive"] = wandb.Histogram(positive.cpu())
+        latents[f"{stage}_n_negative"] = wandb.Histogram(negative.cpu())
+        latents[f"{stage}_n_total"] = wandb.Histogram(total.cpu())
+
         return latents
 
     def evaluate(self, stage: str):

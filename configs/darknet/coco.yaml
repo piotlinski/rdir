@@ -4,3 +4,4 @@ defaults:
 training:
   n_classes: 80
   data_dir: ${original_work_dir}/data/coco
+  max_batches: 160000

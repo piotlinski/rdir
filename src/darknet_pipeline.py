@@ -47,7 +47,7 @@ def prepare_config(
         config = fp.read().format(
             batch=batch,
             n_classes=n_classes,
-            yolo_filters=(n_classes + 5) * 3,
+            yolo_filters=(n_classes + 5),
             subdivisions=subdivisions,
             width=size,
             height=size,

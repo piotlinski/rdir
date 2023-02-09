@@ -507,7 +507,7 @@ class DIR(pl.LightningModule):
                         **self.visualize_objects(stage),
                         **self.log_latents(stage),
                     },
-                    step=self.global_step,
+                    commit=False,
                 )
 
         return loss

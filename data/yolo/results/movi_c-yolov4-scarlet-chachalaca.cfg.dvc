@@ -1,0 +1,4 @@
+outs:
+- md5: 845107b757f714b3bf90d7822de6abd6
+  size: 11943
+  path: movi_c-yolov4-scarlet-chachalaca.cfg

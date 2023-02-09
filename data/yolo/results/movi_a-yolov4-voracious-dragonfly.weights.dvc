@@ -1,0 +1,4 @@
+outs:
+- md5: 23e995708801e2946fdc8c60cff883da
+  size: 255944180
+  path: movi_a-yolov4-voracious-dragonfly.weights

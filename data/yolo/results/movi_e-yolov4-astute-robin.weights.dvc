@@ -1,0 +1,4 @@
+outs:
+- md5: 7b874e1899b8ad27f5e84d8510a1f408
+  size: 256044700
+  path: movi_e-yolov4-astute-robin.weights

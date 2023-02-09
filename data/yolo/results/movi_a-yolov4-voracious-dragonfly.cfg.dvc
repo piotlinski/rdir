@@ -1,0 +1,4 @@
+outs:
+- md5: 918bc31ab3acc25f74a7724e94c1f773
+  size: 11934
+  path: movi_a-yolov4-voracious-dragonfly.cfg

@@ -1,0 +1,4 @@
+outs:
+- md5: b6a8b8fbd1191b672544cc64f92b4f48
+  size: 256044700
+  path: movi_c-yolov4-scarlet-chachalaca.weights

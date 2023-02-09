@@ -1,5 +1,5 @@
 """Latents handler for DIR."""
-from typing import Callable, Tuple, Union
+from typing import Callable, Optional, Tuple, Union
 
 import torch
 from torch import nn
@@ -17,16 +17,22 @@ class LatentHandler(nn.Module):
     """Module for handling latents."""
 
     def __init__(
-        self, reset_non_present: bool = False, negative_percentage: float = 0.1
+        self,
+        reset_non_present: bool = False,
+        negative_percentage: float = 0.1,
+        max_objects: Optional[int] = 10,
     ):
         """
         :param reset_non_present: set non-present latents to some ordinary ones
         :param negative_percentage: percentage of negative objects to be added
+        :param max_objects: maximum number of objects to be present in the image
+            (if None, then no limit is applied)
         """
         super().__init__()
 
         self._reset_non_present = reset_non_present
         self._negative_percentage = negative_percentage
+        self._max_objects = max_objects
 
         self._z_present_eps = 1e-3
         self.register_buffer("_empty_loc", torch.tensor(0.0, dtype=torch.float))
@@ -58,6 +64,28 @@ class LatentHandler(nn.Module):
             (z_what_loc, z_what_scale),
             (z_depth_loc, z_depth_scale),
         )
+
+    @staticmethod
+    def limit_positive(
+        sampled_present: torch.Tensor, z_present: torch.Tensor, max_objects: int
+    ) -> torch.Tensor:
+        """Limit number of positive objects."""
+        n_present = torch.sum(sampled_present, dim=1, dtype=torch.long)
+        present_mask = sampled_present > 0
+        for idx, n in enumerate(n_present):
+            if n > max_objects:
+                mask = present_mask[idx]
+                positive = z_present[idx][mask]
+                indices = torch.arange(
+                    mask.shape[0], dtype=torch.long, device=mask.device
+                ).unsqueeze(-1)[mask]
+
+                _, sort_indices = torch.sort(positive)
+                to_drop = indices[sort_indices][: n - max_objects]
+
+                sampled_present[(idx, to_drop)] = 0
+
+        return sampled_present
 
     @staticmethod
     def negative_indices(z_present: torch.Tensor, padded_size: int) -> torch.Tensor:
@@ -130,11 +158,21 @@ class LatentHandler(nn.Module):
             latents = self.reset_non_present(latents)
         z_where, z_present, z_what, z_depth = latents
 
+        sampled_where = where_fn(z_where)
+        sampled_present = present_fn(z_present)
+        sampled_what = what_fn(z_what)
+        sampled_depth = depth_fn(z_depth)
+
+        if self._max_objects is not None:
+            sampled_present = self.limit_positive(
+                sampled_present, z_present, self._max_objects
+            )
+
         representation = (
-            where_fn(z_where),
-            present_fn(z_present),
-            what_fn(z_what),
-            depth_fn(z_depth),
+            sampled_where,
+            sampled_present,
+            sampled_what,
+            sampled_depth,
         )
 
         filtered = self.filter_representation(representation)

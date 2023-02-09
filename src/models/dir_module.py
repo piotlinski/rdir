@@ -1,5 +1,5 @@
 """DIR model definition."""
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 import numpy as np
 import PIL.Image as PILImage
@@ -59,6 +59,7 @@ class DIR(pl.LightningModule):
         normalize_reconstructions: bool = False,
         reset_non_present: bool = False,
         negative_percentage: bool = 0.1,
+        max_objects: Optional[int] = 10,
     ):
         """
         :param learning_rate: learning rate used for training the model
@@ -72,6 +73,7 @@ class DIR(pl.LightningModule):
         :param normalize_reconstructions: normalize reconstructions before scoring
         :param reset_non_present: set non-present latents to some ordinary ones
         :param negative_percentage: percentage of negative samples
+        :param max_objects: max number of objects in the image (None for no limit)
         """
         super().__init__()
 
@@ -99,6 +101,7 @@ class DIR(pl.LightningModule):
         self.latent_handler = LatentHandler(
             reset_non_present=reset_non_present,
             negative_percentage=negative_percentage,
+            max_objects=max_objects,
         )
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 

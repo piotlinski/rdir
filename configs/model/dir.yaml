@@ -14,6 +14,7 @@ objects_coef: 10
 normalize_reconstructions: true
 reset_non_present: false
 negative_percentage: 0.1
+max_objects: NULL
 
 encoder:
   _target_: src.models.components.encode.encoder.Encoder

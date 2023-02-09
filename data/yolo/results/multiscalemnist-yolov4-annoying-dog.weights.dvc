@@ -1,0 +1,4 @@
+outs:
+- md5: 0ecf2230fe7d9f734b07004d653d1620
+  size: 255994440
+  path: multiscalemnist-yolov4-annoying-dog.weights

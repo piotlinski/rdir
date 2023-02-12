@@ -1,6 +1,8 @@
 """DIR model definition."""
+import pickle
 from typing import Any, Dict, Optional, Tuple
 
+import cv2
 import numpy as np
 import PIL.Image as PILImage
 import pyro
@@ -221,7 +223,6 @@ class DIR(pl.LightningModule):
         self, images: torch.Tensor, z_present: torch.Tensor, objects_where: torch.Tensor
     ) -> torch.Tensor:
         """Transform ground-truth objects with given where coordinates."""
-        batch_size, n_objects, *_ = z_present.shape
         n_present = torch.sum(z_present.bool(), dim=1, dtype=torch.long).squeeze(-1)
         objects_indices = torch.repeat_interleave(
             torch.arange(
@@ -355,6 +356,12 @@ class DIR(pl.LightningModule):
                 self._store["objects"] = objects.detach()
                 objects_where = z_where.view(-1, z_where.shape[-1])
                 objects_obs = self.transform_objects(x, z_present, objects_where)
+
+                if not self.decoder.include_negative:
+                    present_mask = (z_present > 0).view(-1, 1, 1, 1).expand_as(objects)
+                    objects = objects * present_mask
+                    objects_obs = objects_obs * present_mask
+
                 with poutine.scale(
                     scale=self.objects_coef(batch_size, objects_obs.shape[0])
                 ):
@@ -464,6 +471,11 @@ class DIR(pl.LightningModule):
         objects = self._store["objects"]
         objects_where = z_where.view(-1, z_where.shape[-1])
         objects_obs = self.transform_objects(images, z_present, objects_where)
+
+        if not self.decoder.include_negative:
+            present_mask = (z_present > 0).view(-1, 1, 1, 1).expand_as(objects)
+            objects = objects * present_mask
+            objects_obs = objects_obs * present_mask
 
         objects_loss = criterion(objects, objects_obs)
         self.log(f"{stage}_loss_objects", objects_loss, prog_bar=False, logger=True)

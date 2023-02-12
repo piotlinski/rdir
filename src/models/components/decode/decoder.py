@@ -21,6 +21,7 @@ class Decoder(nn.Module):
         square_boxes: bool = False,
         image_size: int = 416,
         train_what: bool = True,
+        include_negative: bool = False,
     ):
         """
         :param z_what_size: z_what latent representation size
@@ -29,10 +30,12 @@ class Decoder(nn.Module):
         :param square_boxes: use square bounding boxes
         :param image_size: reconstructed image size
         :param train_what: perform z_what decoder training
+        :param include_negative: include negative objects in reconstruction
         """
         super().__init__()
 
         self.image_size = image_size
+        self.include_negative = include_negative
 
         self.what_dec = WhatDecoder(
             latent_dim=z_what_size, decoded_size=decoded_size, channels=decoder_channels
@@ -100,7 +103,7 @@ class Decoder(nn.Module):
 
         objects = self.transform_objects(objects, z_where)
 
-        if not self.training:
+        if not self.training or not self.include_negative:
             objects = self.filter(objects, z_present)
 
         reconstructions = self.reconstruct(objects, z_depth)

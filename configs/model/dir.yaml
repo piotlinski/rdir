@@ -50,3 +50,4 @@ decoder:
   square_boxes: false
   image_size: ${darknet.training.size}
   train_what: true
+  include_negative: false

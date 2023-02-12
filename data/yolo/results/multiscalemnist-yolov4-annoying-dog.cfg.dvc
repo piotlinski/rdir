@@ -1,4 +1,4 @@
 outs:
-- md5: 609640e836561c1594e4b87a4dd596a3
+- md5: fd6e38d003c33884af28db92fd088a19
   size: 11943
   path: multiscalemnist-yolov4-annoying-dog.cfg

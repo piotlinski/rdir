@@ -47,7 +47,13 @@ class WhatEncoder(nn.Module):
         hidden_size = 2 * out_size
 
         layers = [
-            nn.Conv2d(in_channels=in_channels, out_channels=hidden_size, kernel_size=1),
+            nn.Conv2d(
+                in_channels=in_channels,
+                out_channels=hidden_size,
+                kernel_size=1,
+                bias=False,
+            ),
+            nn.BatchNorm2d(hidden_size),
             nn.LeakyReLU(True),
         ]
         for _ in range(self.num_hidden):
@@ -59,7 +65,9 @@ class WhatEncoder(nn.Module):
                         kernel_size=3,
                         stride=1,
                         padding=1,
+                        bias=False,
                     ),
+                    nn.BatchNorm2d(hidden_size),
                     nn.LeakyReLU(True),
                 ]
             )

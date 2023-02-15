@@ -165,7 +165,9 @@ class SeqEncoder(nn.Module):
                 in_channels,
                 kernel_size=self.kernel_size,
                 padding=self.kernel_size // 2,
+                bias=False,
             ),
+            nn.BatchNorm2d(in_channels),
             nn.LeakyReLU(True),
         ]
         for _ in range(self.num_hidden - 1):
@@ -176,7 +178,9 @@ class SeqEncoder(nn.Module):
                         in_channels,
                         kernel_size=self.kernel_size,
                         padding=self.kernel_size // 2,
+                        bias=False,
                     ),
+                    nn.BatchNorm2d(in_channels),
                     nn.LeakyReLU(True),
                 ]
             )
@@ -197,7 +201,9 @@ class SeqEncoder(nn.Module):
                 in_channels,
                 kernel_size=self.kernel_size,
                 padding=self.kernel_size // 2,
+                bias=False,
             ),
+            nn.BatchNorm2d(in_channels),
             nn.LeakyReLU(True),
         ]
         post = nn.Sequential(*post_layers)

@@ -48,7 +48,9 @@ class DepthEncoder(nn.Module):
                     kernel_size=3,
                     stride=1,
                     padding=1,
+                    bias=False,
                 ),
+                nn.BatchNorm2d(hidden_dim),
                 nn.LeakyReLU(True),
                 nn.Conv2d(
                     in_channels=hidden_dim, out_channels=num_anchors, kernel_size=1

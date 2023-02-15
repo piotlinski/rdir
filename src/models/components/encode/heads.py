@@ -22,11 +22,12 @@ class PresentHead(nn.Module):
         :param classes: list of classes to filter
         """
         super().__init__()
-        self.classes = classes
+        self.index = slice(None)
+        if classes is not None:
+            self.index = classes
 
     def forward(self, confs: torch.Tensor) -> torch.Tensor:
         """Perform forward pass."""
-        if self.classes is not None:
-            confs = confs[..., self.classes]
+        confs = confs[..., self.index]
         max_values, _ = torch.max(confs, axis=-1, keepdim=True)
         return max_values

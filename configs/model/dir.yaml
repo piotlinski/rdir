@@ -11,9 +11,8 @@ depth_coef: 0.1
 present_coef: 0.1
 objects_coef: 10
 
-normalize_reconstructions: true
 reset_non_present: false
-negative_percentage: 0.1
+negative_percentage: 0.0
 max_objects: NULL
 
 encoder:

@@ -58,7 +58,6 @@ class DIR(pl.LightningModule):
         depth_coef: float = 1.0,
         present_coef: float = 1.0,
         objects_coef: float = 0.0,
-        normalize_reconstructions: bool = False,
         reset_non_present: bool = False,
         negative_percentage: bool = 0.1,
         max_objects: Optional[int] = 10,
@@ -72,7 +71,6 @@ class DIR(pl.LightningModule):
         :param depth_coef: z_depth distribution component coef
         :param present_coef: z_present distribution component coef
         :param objects_coef: per-object reconstruction component coef
-        :param normalize_reconstructions: normalize reconstructions before scoring
         :param reset_non_present: set non-present latents to some ordinary ones
         :param negative_percentage: percentage of negative samples
         :param max_objects: max number of objects in the image (None for no limit)
@@ -95,7 +93,6 @@ class DIR(pl.LightningModule):
         self._depth_coef = depth_coef
         self._present_coef = present_coef
         self._objects_coef = objects_coef
-        self._normalize_reconstructions = normalize_reconstructions
 
         self._reset_non_present = reset_non_present
         self._negative_percentage = negative_percentage
@@ -204,11 +201,7 @@ class DIR(pl.LightningModule):
 
     def decoder_forward(self, latents: DIRRepresentation) -> torch.Tensor:
         """Perform forward pass through decoder network."""
-        outputs = self.decoder(
-            latents,
-            return_objects=True,
-            normalize_reconstructions=self._normalize_reconstructions,
-        )
+        outputs = self.decoder(latents)
         self._store["reconstructions"] = outputs["reconstructions"].detach()
         self._store["objects"] = outputs["objects"].detach()
         return outputs["reconstructions"]
@@ -327,11 +320,7 @@ class DIR(pl.LightningModule):
                 what_fn=_what,
                 depth_fn=_depth,
             )
-            output = self.decoder(
-                representation,
-                return_objects=True,
-                normalize_reconstructions=self._normalize_reconstructions,
-            )
+            output = self.decoder(representation)
             reconstructions = output["reconstructions"]
             self._store["reconstructions"] = reconstructions.detach()
 

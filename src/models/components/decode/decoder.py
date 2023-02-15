@@ -67,15 +67,6 @@ class Decoder(nn.Module):
         return torch.where(mask, no_objects, objects)
 
     @staticmethod
-    def reconstruct(objects: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
-        """Combine decoder images into one by weighted sum."""
-        weighted_objects = objects * F.softmax(weights, dim=1).view(
-            *weights.shape[:2], 1, 1, 1
-        )
-        merged = torch.sum(weighted_objects, dim=1)
-        return merged
-
-    @staticmethod
     def normalize_reconstructions(reconstructions: torch.Tensor) -> torch.Tensor:
         """Normalize reconstructions to fit range 0-1."""
         batch_size = reconstructions.shape[0]
@@ -85,12 +76,15 @@ class Decoder(nn.Module):
         )
         return reconstructions / max_values
 
-    def forward(
-        self,
-        representation: DIRRepresentation,
-        return_objects: bool = False,
-        normalize_reconstructions: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    def reconstruct(self, objects: torch.Tensor, weights: torch.Tensor) -> torch.Tensor:
+        """Combine decoder images into one by weighted sum."""
+        weighted_objects = objects * F.softmax(weights, dim=1).view(
+            *weights.shape[:2], 1, 1, 1
+        )
+        merged = torch.sum(weighted_objects, dim=1)
+        return self.normalize_reconstructions(merged)
+
+    def forward(self, representation: DIRRepresentation) -> Dict[str, torch.Tensor]:
         """Reconstruct images from representation."""
         ret = {}
 
@@ -98,8 +92,7 @@ class Decoder(nn.Module):
 
         objects = self.decode_objects(z_what)
 
-        if return_objects:
-            ret["objects"] = objects
+        ret["objects"] = objects
 
         objects = self.transform_objects(objects, z_where)
 
@@ -107,9 +100,6 @@ class Decoder(nn.Module):
             objects = self.filter(objects, z_present)
 
         reconstructions = self.reconstruct(objects, z_depth)
-
-        if normalize_reconstructions:
-            reconstructions = self.normalize_reconstructions(reconstructions)
 
         ret["reconstructions"] = reconstructions
 

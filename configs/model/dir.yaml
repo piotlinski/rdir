@@ -50,3 +50,4 @@ decoder:
   image_size: ${darknet.training.size}
   train_what: true
   include_negative: false
+  use_render: false

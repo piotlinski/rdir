@@ -22,6 +22,7 @@ class Decoder(nn.Module):
         image_size: int = 416,
         train_what: bool = True,
         include_negative: bool = False,
+        use_render: bool = False,
     ):
         """
         :param z_what_size: z_what latent representation size
@@ -31,11 +32,13 @@ class Decoder(nn.Module):
         :param image_size: reconstructed image size
         :param train_what: perform z_what decoder training
         :param include_negative: include negative objects in reconstruction
+        :param use_render: use render reconstruction instead of weighted sum
         """
         super().__init__()
 
         self.image_size = image_size
         self.include_negative = include_negative
+        self.use_render = use_render
 
         self.what_dec = WhatDecoder(
             latent_dim=z_what_size, decoded_size=decoded_size, channels=decoder_channels
@@ -84,6 +87,20 @@ class Decoder(nn.Module):
         merged = torch.sum(weighted_objects, dim=1)
         return self.normalize_reconstructions(merged)
 
+    def render(self, objects: torch.Tensor, depth: torch.Tensor) -> torch.Tensor:
+        """Render reconstruction by merging objects sorted by depth."""
+        batch_size, _, *shape = objects.shape
+        _, indices = torch.sort(depth, dim=1, descending=True)
+        sorted_objects = torch.gather(
+            objects, 1, indices.unsqueeze(-1).unsqueeze(-1).expand(-1, -1, *shape)
+        )
+        output = objects.new_zeros(batch_size, *shape)
+        for i in range(sorted_objects.shape[1]):
+            obj = sorted_objects[:, i]
+            mask = obj > 1e-3
+            output[:] = torch.where(mask, obj, output)
+        return output
+
     def forward(self, representation: DIRRepresentation) -> Dict[str, torch.Tensor]:
         """Reconstruct images from representation."""
         ret = {}
@@ -99,7 +116,10 @@ class Decoder(nn.Module):
         if not self.training or not self.include_negative:
             objects = self.filter(objects, z_present)
 
-        reconstructions = self.reconstruct(objects, z_depth)
+        if self.use_render:
+            reconstructions = self.render(objects, z_depth)
+        else:
+            reconstructions = self.reconstruct(objects, z_depth)
 
         ret["reconstructions"] = reconstructions
 

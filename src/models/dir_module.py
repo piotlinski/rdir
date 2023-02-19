@@ -104,7 +104,7 @@ class DIR(pl.LightningModule):
         )
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 
-        self.save_hyperparameters()
+        self.save_hyperparameters(ignore=["encoder", "decoder"])
         self._store: Dict[str, Any] = {}
 
         self.train_mse = MeanSquaredError()

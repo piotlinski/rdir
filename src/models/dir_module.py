@@ -13,9 +13,12 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import wandb
+from omegaconf import DictConfig
 from torchmetrics import MeanSquaredError
 
+from src.models.components.decode.decoder import Decoder
 from src.models.components.decode.where import WhereTransformer
+from src.models.components.encode.encoder import Encoder
 from src.models.components.latents import (
     LatentHandler,
     DIRLatents,
@@ -48,8 +51,8 @@ class DIR(pl.LightningModule):
 
     def __init__(
         self,
-        encoder: nn.Module,
-        decoder: nn.Module,
+        encoder: DictConfig,
+        decoder: DictConfig,
         learning_rate: float = 1e-3,
         z_present_threshold: float = 0.2,
         z_present_p_prior: float = 0.1,
@@ -77,8 +80,8 @@ class DIR(pl.LightningModule):
         """
         super().__init__()
 
-        self.encoder = encoder
-        self.decoder = decoder
+        self.encoder = Encoder(**encoder)
+        self.decoder = Decoder(**decoder)
 
         self.lr = learning_rate
 
@@ -104,7 +107,7 @@ class DIR(pl.LightningModule):
         )
         self.objects_stn = WhereTransformer(image_size=self.decoded_size, inverse=True)
 
-        self.save_hyperparameters(ignore=["encoder", "decoder"])
+        self.save_hyperparameters()
         self._store: Dict[str, Any] = {}
 
         self.train_mse = MeanSquaredError()

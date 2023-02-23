@@ -58,9 +58,9 @@ class RDIR(DIR):
             depth_coef=dir._depth_coef,
             present_coef=dir._present_coef,
             objects_coef=dir._objects_coef,
-            normalize_reconstructions=dir._normalize_reconstructions,
             reset_non_present=dir._reset_non_present,
             negative_percentage=dir._negative_percentage,
+            max_objects=dir.latent_handler._max_objects,
         )
 
     def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:

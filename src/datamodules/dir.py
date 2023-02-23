@@ -47,9 +47,10 @@ class RDIRDataset(YOLODataset):
                 img, x1y1x2y2 = self.get_augmented(img_path, reuse=(i != 0))
                 xywh = self.x1y1x2y2_to_xywh(x1y1x2y2, (self.width, self.height))
             seq_boxes = np.zeros([self.max_boxes, 5])
-            seq_boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
-                : min(xywh.shape[0], self.max_boxes)
-            ]
+            if xywh.shape[0] > 0:
+                seq_boxes[: min(xywh.shape[0], self.max_boxes)] = xywh[
+                    : min(xywh.shape[0], self.max_boxes)
+                ]
             images.append(img.astype(np.float32))
             boxes.append(seq_boxes.astype(np.float32))
         return np.stack(images, axis=0), np.stack(boxes, axis=0)

@@ -1,6 +1,6 @@
 """DIR model definition."""
 import pickle
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Union
 
 import cv2
 import numpy as np
@@ -12,10 +12,10 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import wandb
 from omegaconf import DictConfig
 from torchmetrics import MeanSquaredError
 
+import wandb
 from src.models.components.decode.decoder import Decoder
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import Encoder
@@ -51,8 +51,8 @@ class DIR(pl.LightningModule):
 
     def __init__(
         self,
-        encoder: DictConfig,
-        decoder: DictConfig,
+        encoder: Union[DictConfig, nn.Module],
+        decoder: Union[DictConfig, nn.Module],
         learning_rate: float = 1e-3,
         z_present_threshold: float = 0.2,
         z_present_p_prior: float = 0.1,
@@ -80,8 +80,8 @@ class DIR(pl.LightningModule):
         """
         super().__init__()
 
-        self.encoder = Encoder(**encoder)
-        self.decoder = Decoder(**decoder)
+        self.encoder = encoder if isinstance(encoder, nn.Module) else Encoder(**encoder)
+        self.decoder = decoder if isinstance(decoder, nn.Module) else Decoder(**decoder)
 
         self.lr = learning_rate
 

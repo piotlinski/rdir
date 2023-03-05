@@ -20,48 +20,30 @@ class RDIR(DIR):
 
     def __init__(
         self,
-        dir: DIR,
         n_rnn_hidden: int = 2,
         rnn_kernel_size: int = 5,
-        rnn_cls: Type[nn.RNNBase] = nn.GRU,
+        rnn_cls: str = "gru",
         n_rnn_cells: int = 2,
         rnn_bidirectional: bool = False,
-        train_backbone: bool = False,
-        train_neck: bool = False,
-        train_head: bool = False,
-        train_what: bool = True,
-        train_depth: bool = True,
         train_rnn: bool = True,
+        **dir_kwargs,
     ):
-        rnn_encoder = RNNEncoder(
-            encoder=dir.encoder,
+        super().__init__(**dir_kwargs)
+        self.rnn_encoder = RNNEncoder(
+            encoder=self.encoder,
             n_rnn_hidden=n_rnn_hidden,
             rnn_kernel_size=rnn_kernel_size,
             rnn_cls=rnn_cls,
             n_rnn_cells=n_rnn_cells,
             rnn_bidirectional=rnn_bidirectional,
-            train_backbone=train_backbone,
-            train_neck=train_neck,
-            train_head=train_head,
-            train_what=train_what,
-            train_depth=train_depth,
             train_rnn=train_rnn,
         )
-        super().__init__(
-            encoder=rnn_encoder,
-            decoder=dir.decoder,
-            learning_rate=dir.lr,
-            z_present_threshold=dir.z_present_threshold,
-            z_present_p_prior=dir.z_present_p_prior,
-            reconstruction_coef=dir._reconstruction_coef,
-            what_coef=dir._what_coef,
-            depth_coef=dir._depth_coef,
-            present_coef=dir._present_coef,
-            objects_coef=dir._objects_coef,
-            reset_non_present=dir._reset_non_present,
-            negative_percentage=dir._negative_percentage,
-            max_objects=dir.latent_handler._max_objects,
-        )
+
+        self.save_hyperparameters()
+
+    def encoder_forward(self, x: PackedSequence) -> DIRLatents:
+        """Forward pass through the encoder."""
+        return self.rnn_encoder(x)
 
     def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
         """Sample latents o create representation."""

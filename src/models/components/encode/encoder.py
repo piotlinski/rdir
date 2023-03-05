@@ -161,7 +161,7 @@ class Encoder(nn.Module):
         return latents
 
 
-class RNNEncoder(Encoder):
+class RNNEncoder(nn.Module):
     """Sequential Encoder."""
 
     def __init__(
@@ -169,35 +169,16 @@ class RNNEncoder(Encoder):
         encoder: Encoder,
         n_rnn_hidden: int = 2,
         rnn_kernel_size: int = 5,
-        rnn_cls: Type[nn.RNNBase] = nn.GRU,
+        rnn_cls: str = "gru",
         n_rnn_cells: int = 2,
         rnn_bidirectional: bool = False,
-        train_backbone: bool = False,
-        train_neck: bool = False,
-        train_head: bool = False,
-        train_what: bool = True,
-        train_depth: bool = True,
         train_rnn: bool = True,
     ):
-        super().__init__(
-            yolo=(encoder.backbone, encoder.neck, encoder.head),
-            z_what_size=encoder.what_enc.latent_dim,
-            z_what_hidden=encoder.what_enc.num_hidden,
-            z_what_scale_const=encoder.what_enc.scale_const,
-            z_depth_scale_const=encoder.depth_enc.scale_const,
-            train_backbone=train_backbone,
-            train_neck=train_neck,
-            train_head=train_head,
-            train_what=train_what,
-            train_depth=train_depth,
-            what_enc=encoder.what_enc,
-            depth_enc=encoder.depth_enc,
-            cloned_neck=encoder.cloned_neck,
-            cloned_backbone=encoder.cloned_backbone,
-        )
+        super().__init__()
+        self.encoder = encoder
         self.seq_enc = SeqEncoder(
-            anchors=encoder.head.num_anchors,
-            out_channels=self.neck.out_channels,
+            anchors=self.encoder.head.num_anchors,
+            out_channels=self.encoder.neck.out_channels,
             num_hidden=n_rnn_hidden,
             kernel_size=rnn_kernel_size,
             rnn_cls=rnn_cls,
@@ -207,22 +188,22 @@ class RNNEncoder(Encoder):
 
     def forward(self, images: PackedSequence) -> DIRLatents:
         """Encode images sequentially."""
-        features = packed_forward(self.backbone, images)
-        intermediates = packed_forward(self.neck, features)
+        features = packed_forward(self.encoder.backbone, images)
+        intermediates = packed_forward(self.encoder.neck, features)
 
-        boxes, confs = packed_forward(self.head, intermediates)
-        z_where = packed_forward(self.where_head, boxes)
-        z_present = packed_forward(self.present_head, confs)
+        boxes, confs = packed_forward(self.encoder.head, intermediates)
+        z_where = packed_forward(self.encoder.where_head, boxes)
+        z_present = packed_forward(self.encoder.present_head, confs)
 
-        if self.cloned_backbone is not None:
-            features = packed_forward(self.cloned_backbone, images)
-        if self.cloned_neck is not None:
-            intermediates = packed_forward(self.cloned_neck, features)
+        if self.encoder.cloned_backbone is not None:
+            features = packed_forward(self.encoder.cloned_backbone, images)
+        if self.encoder.cloned_neck is not None:
+            intermediates = packed_forward(self.encoder.cloned_neck, features)
 
         intermediates = self.seq_enc(intermediates)
 
-        z_what = packed_forward(self.what_enc, intermediates)
-        z_depth = packed_forward(self.depth_enc, intermediates)
+        z_what = packed_forward(self.encoder.what_enc, intermediates)
+        z_depth = packed_forward(self.encoder.depth_enc, intermediates)
 
         latents = (z_where, z_present, z_what, z_depth)
 

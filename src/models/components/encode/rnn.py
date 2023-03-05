@@ -133,13 +133,15 @@ class SeqRNN(nn.Module):
 class SeqEncoder(nn.Module):
     """Module for processing sequential features."""
 
+    RNNS = {"gru": nn.GRU, "lstm": nn.LSTM}
+
     def __init__(
         self,
         anchors: Dict[int, int],
         out_channels: Dict[int, int],
         num_hidden: int = 2,
         kernel_size: int = 5,
-        rnn_cls: Type[nn.RNNBase] = nn.GRU,
+        rnn_cls: str = "gru",
         n_cells: int = 2,
         bidirectional: bool = False,
     ):
@@ -151,7 +153,7 @@ class SeqEncoder(nn.Module):
         self.num_hidden = num_hidden
         self.kernel_size = kernel_size
 
-        self.rnn_cls = rnn_cls
+        self.rnn_cls = self.RNNS[rnn_cls]
         self.bidirectional = bidirectional
         self.n_cells = n_cells
 

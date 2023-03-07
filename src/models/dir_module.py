@@ -1,8 +1,6 @@
 """DIR model definition."""
-import pickle
 from typing import Any, Dict, Optional, Tuple, Union
 
-import cv2
 import numpy as np
 import PIL.Image as PILImage
 import pyro
@@ -62,7 +60,7 @@ class DIR(pl.LightningModule):
         present_coef: float = 1.0,
         objects_coef: float = 0.0,
         reset_non_present: bool = False,
-        negative_percentage: bool = 0.1,
+        negative_percentage: float = 0.1,
         max_objects: Optional[int] = 10,
     ):
         """

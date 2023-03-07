@@ -31,13 +31,18 @@ coolname        # names for trained YOLOv4 model
 
 # --------- darknet --------- #
 tensorboardX>=2.0
-scikit-image==0.19.2  # 0.19.2
-matplotlib==3.5.1  # 3.5.1
-tqdm==4.62.3  # 4.62.3
-easydict==1.9  # 1.9
-Pillow==9.0.0  # 9.0.0
-opencv_python==4.5.5.64  # 4.5.5.64
+scikit-image==0.19.2
+matplotlib==3.5.1
+tqdm==4.62.3
+easydict==1.9
+Pillow==9.0.0
+opencv_python==4.5.5.64
 pycocotools
 
 # --------- dir ---------- #
-pyro-ppl==1.8.0  # 1.8.0
+pyro-ppl==1.8.0
+ipykernel==6.21.3
+ipywidgets==8.0.4
+scikit-learn==1.2.1
+pandas==1.5.3
+seaborn==0.12.2

@@ -1,8 +1,10 @@
 defaults:
   - default.yaml
-  - dir.yaml
 
-_target_: src.models.rdir_module.RDIR
+_target_: src.models.rdir_module.RDIR.load_from_checkpoint
+
+checkpoint_path: null
+strict: false
 
 n_rnn_hidden: 2
 rnn_kernel_size: 5

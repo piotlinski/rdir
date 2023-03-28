@@ -113,8 +113,9 @@ class Encoder(nn.Module):
         x2y2 = boxes[..., :2] + boxes[..., 2:] / 2
         return torch.cat((x1y1, x2y2), dim=-1)
 
-    def run_nms(self, z_where: torch.Tensor, z_present: torch.Tensor) -> torch.Tensor:
+    def run_nms(self, where_and_present: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
         """Run batched non-maximum suppression on latents."""
+        z_where, z_present = where_and_present
         batch_size, n_anchors, _ = z_where.shape
         boxes = self.xywh_to_x1y1x2y2(z_where)
         indices = torch.arange(batch_size, device=z_where.device)
@@ -146,7 +147,7 @@ class Encoder(nn.Module):
         z_present = self.present_head(confs)
 
         if self.nms_always or not self.training:
-            z_present = self.run_nms(z_where, z_present)
+            z_present = self.run_nms((z_where, z_present))
 
         if self.cloned_backbone is not None:
             features = self.cloned_backbone(images)
@@ -194,6 +195,9 @@ class RNNEncoder(nn.Module):
         boxes, confs = packed_forward(self.encoder.head, intermediates)
         z_where = packed_forward(self.encoder.where_head, boxes)
         z_present = packed_forward(self.encoder.present_head, confs)
+
+        if self.encoder.nms_always or not self.training:
+            z_present = packed_forward(self.encoder.run_nms, (z_where, z_present))
 
         if self.encoder.cloned_backbone is not None:
             features = packed_forward(self.encoder.cloned_backbone, images)

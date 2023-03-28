@@ -1,5 +1,5 @@
 """DIR sequential features processor."""
-from typing import Any, Dict, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 import torch
 from torch import nn
@@ -96,6 +96,11 @@ class SeqRNN(nn.Module):
 
         self._rnn = rnn_cls(**rnn_kwargs)
 
+        self._post: Optional[nn.Module] = None
+        if rnn_kwargs["bidirectional"]:
+            self._post = nn.Linear(rnn_kwargs["hidden_size"] * 2, rnn_kwargs["hidden_size"])
+
+
     @staticmethod
     def preprocess_sequence(
         sequence: PackedSequence,
@@ -127,6 +132,8 @@ class SeqRNN(nn.Module):
     def forward(self, x: PackedSequence) -> PackedSequence:
         x, permuted_shape = self.preprocess_sequence(x)
         x, _ = self._rnn(x)
+        if self._post is not None:
+            x = packed_forward(self._post, x)
         return self.postprocess_sequence(x, permuted_shape)
 
 
@@ -191,7 +198,7 @@ class SeqEncoder(nn.Module):
         rnn = SeqRNN(
             self.rnn_cls,
             input_size=in_channels,
-            hidden_size=in_channels // self.n_cells,
+            hidden_size=in_channels,
             bidirectional=self.bidirectional,
             batch_first=True,
             num_layers=self.n_cells,

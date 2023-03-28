@@ -10,4 +10,4 @@ n_rnn_hidden: 2
 rnn_kernel_size: 5
 rnn_cls: gru
 n_rnn_cells: 2
-rnn_bidirectional: true
+rnn_bidirectional: false

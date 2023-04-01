@@ -1,7 +1,7 @@
 """DIR encoder."""
 import math
 from copy import deepcopy
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Optional, Tuple, Type, Union
 
 import torch
 import torch.nn as nn
@@ -30,10 +30,15 @@ class Mixer(nn.Module):
         self._mixers = self._build_mixers()
 
     @staticmethod
-    def _build_conv_block(in_channels: int, out_channels: int, **conv2d_kwargs):
+    def _build_conv_block(
+        in_channels: int,
+        out_channels: int,
+        conv2d_cls: Type[nn.Module] = nn.Conv2d,
+        **conv2d_kwargs,
+    ):
         """Build convolutional block."""
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, **conv2d_kwargs, bias=False),
+            conv2d_cls(in_channels, out_channels, **conv2d_kwargs),
             nn.BatchNorm2d(out_channels),
             nn.LeakyReLU(True),
         )
@@ -49,16 +54,12 @@ class Mixer(nn.Module):
             for _ in range(power):
                 downscaler.append(
                     self._build_conv_block(
-                        in_channels,
-                        in_channels // 2,
-                        kernel_size=3,
-                        padding=1,
-                        stride=2,
+                        in_channels, in_channels // 2, kernel_size=1, bias=False
                     )
                 )
                 in_channels //= 2
-            downscalers[key] = nn.Sequential(*downscaler)
-        return downscalers
+            downscalers[str(key)] = nn.Sequential(*downscaler)
+        return nn.ModuleDict(downscalers)
 
     def _build_mixers(self) -> nn.ModuleDict:
         """Build mixers for features."""
@@ -70,25 +71,36 @@ class Mixer(nn.Module):
             larger_channels = self.out_channels[larger]
             smaller_channels = self.out_channels[smaller]
 
-            downscaled_channels = smaller_channels // 2
+            downscaled_channels = smaller_channels // 4
             downscaler = self._build_conv_block(
-                larger_channels, downscaled_channels, kernel_size=3, padding=1, stride=2
+                larger_channels,
+                downscaled_channels,
+                kernel_size=3,
+                padding=1,
+                stride=2,
+                bias=False,
             )
 
-            upscaled_channels = larger_channels // 2
+            upscaled_channels = larger_channels // 4
             upscaler = self._build_conv_block(
-                smaller_channels, upscaled_channels, kernel_size=4, stride=2, padding=1
+                smaller_channels,
+                upscaled_channels,
+                kernel_size=4,
+                stride=2,
+                padding=1,
+                bias=False,
+                conv2d_cls=nn.ConvTranspose2d,
             )
 
             mixers[f"{larger},{smaller}"] = nn.ModuleList([downscaler, upscaler])
 
             channels[larger] += upscaled_channels
-            channels[smaller] = downscaled_channels
+            channels[smaller] += downscaled_channels
 
         for idx, in_channels in channels.items():
             out_channels = self.out_channels[idx]
             mixers[str(idx)] = self._build_conv_block(
-                in_channels, out_channels, kernel_size=1
+                in_channels, out_channels, kernel_size=1, bias=False
             )
 
         return nn.ModuleDict(mixers)
@@ -96,7 +108,7 @@ class Mixer(nn.Module):
     def forward(self, features: Dict[int, torch.Tensor]) -> Dict[int, torch.Tensor]:
         ret = {}
         for key in self.anchors:
-            ret[key] = self._downscalers[key](features[key])
+            ret[key] = self._downscalers[str(key)](features[key])
 
         iterable = list(ret.items())
         for (l, l_features), (s, s_features) in zip(iterable, iterable[1:]):
@@ -107,8 +119,8 @@ class Mixer(nn.Module):
             ret[l] = torch.cat([ret[l], upscaled], dim=1)
             ret[s] = torch.cat([ret[s], downscaled], dim=1)
 
-        for idx, features in ret.items():
-            ret[idx] = self._mixers[str(idx)](features)
+        for idx, feats in ret.items():
+            ret[idx] = self._mixers[str(idx)](feats)
 
         return ret
 
@@ -177,7 +189,7 @@ class Encoder(nn.Module):
         self.where_head = WhereHead()
         self.present_head = PresentHead(filter_classes)
 
-        self.mixer = Mixer(self.head.num_anchor, self.neck.out_channels)
+        self.mixer = Mixer(self.head.num_anchors, self.neck.out_channels)
 
         self.what_enc = what_enc or WhatEncoder(
             latent_dim=z_what_size,
@@ -214,7 +226,9 @@ class Encoder(nn.Module):
         x2y2 = boxes[..., :2] + boxes[..., 2:] / 2
         return torch.cat((x1y1, x2y2), dim=-1)
 
-    def run_nms(self, where_and_present: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
+    def run_nms(
+        self, where_and_present: Tuple[torch.Tensor, torch.Tensor]
+    ) -> torch.Tensor:
         """Run batched non-maximum suppression on latents."""
         z_where, z_present = where_and_present
         batch_size, n_anchors, _ = z_where.shape

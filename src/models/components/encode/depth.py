@@ -4,6 +4,8 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 
+from src.models.components import build_conv2d_block
+
 
 class DepthEncoder(nn.Module):
     """Module for encoding input image features to depth latent representation."""
@@ -42,7 +44,7 @@ class DepthEncoder(nn.Module):
             in_channels = self.out_channels[idx]
             hidden_dim = in_channels // 2
             layers[str(idx)] = nn.Sequential(
-                nn.Conv2d(
+                build_conv2d_block(
                     in_channels=in_channels,
                     out_channels=hidden_dim,
                     kernel_size=3,
@@ -50,8 +52,6 @@ class DepthEncoder(nn.Module):
                     padding=1,
                     bias=False,
                 ),
-                nn.BatchNorm2d(hidden_dim),
-                nn.LeakyReLU(True),
                 nn.Conv2d(
                     in_channels=hidden_dim, out_channels=num_anchors, kernel_size=1
                 ),

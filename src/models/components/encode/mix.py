@@ -1,9 +1,11 @@
 """Mixer for multi-level features."""
 import math
-from typing import Dict, Type
+from typing import Dict
 
 import torch
 import torch.nn as nn
+
+from src.models.components import build_conv2d_block
 
 
 class Mixer(nn.Module):
@@ -20,20 +22,6 @@ class Mixer(nn.Module):
         self._downscalers = self._build_downscalers()
         self._mixers = self._build_mixers()
 
-    @staticmethod
-    def _build_conv_block(
-        in_channels: int,
-        out_channels: int,
-        conv2d_cls: Type[nn.Module] = nn.Conv2d,
-        **conv2d_kwargs,
-    ):
-        """Build convolutional block."""
-        return nn.Sequential(
-            conv2d_cls(in_channels, out_channels, **conv2d_kwargs),
-            nn.BatchNorm2d(out_channels),
-            nn.LeakyReLU(True),
-        )
-
     def _build_downscalers(self):
         """Build downscalers for features."""
         downscalers = {}
@@ -44,7 +32,7 @@ class Mixer(nn.Module):
             downscaler = []
             for _ in range(power):
                 downscaler.append(
-                    self._build_conv_block(
+                    build_conv2d_block(
                         in_channels, in_channels // 2, kernel_size=1, bias=False
                     )
                 )
@@ -63,7 +51,7 @@ class Mixer(nn.Module):
             smaller_channels = self.out_channels[smaller]
 
             downscaled_channels = smaller_channels // 4
-            downscaler = self._build_conv_block(
+            downscaler = build_conv2d_block(
                 larger_channels,
                 downscaled_channels,
                 kernel_size=3,
@@ -73,14 +61,14 @@ class Mixer(nn.Module):
             )
 
             upscaled_channels = larger_channels // 4
-            upscaler = self._build_conv_block(
+            upscaler = build_conv2d_block(
                 smaller_channels,
                 upscaled_channels,
+                cls=nn.ConvTranspose2d,
                 kernel_size=4,
                 stride=2,
                 padding=1,
                 bias=False,
-                conv2d_cls=nn.ConvTranspose2d,
             )
 
             mixers[f"{larger},{smaller}"] = nn.ModuleList([downscaler, upscaler])
@@ -90,7 +78,7 @@ class Mixer(nn.Module):
 
         for idx, in_channels in channels.items():
             out_channels = self.out_channels[idx]
-            mixers[str(idx)] = self._build_conv_block(
+            mixers[str(idx)] = build_conv2d_block(
                 in_channels, out_channels, kernel_size=1, bias=False
             )
 

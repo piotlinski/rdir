@@ -4,6 +4,8 @@ import math
 import torch
 import torch.nn as nn
 
+from src.models.components import build_conv2d_block
+
 
 class WhatDecoder(nn.Module):
     """Module decoding latent z_what code to individual images."""
@@ -23,9 +25,10 @@ class WhatDecoder(nn.Module):
 
         power = int(math.log2(self.decoded_size) - 3)  # 3 is for 4x4 decreased by one
         layers = [
-            nn.ConvTranspose2d(
-                self.latent_dim,
-                self.channels * 2**power,
+            build_conv2d_block(
+                in_channels=self.latent_dim,
+                out_channels=self.channels * 2**power,
+                cls=nn.ConvTranspose2d,
                 kernel_size=4,
                 stride=1,
                 padding=0,
@@ -33,33 +36,25 @@ class WhatDecoder(nn.Module):
             )
         ]
         for p in range(power, 0, -1):
-            segment = [
-                nn.BatchNorm2d(self.channels * 2**p),
-                nn.LeakyReLU(True),
-                nn.ConvTranspose2d(
-                    self.channels * 2**p,
-                    self.channels * 2 ** (p - 1),
+            layers.append(
+                build_conv2d_block(
+                    in_channels=self.channels * 2**p,
+                    out_channels=self.channels * 2 ** (p - 1),
+                    cls=nn.ConvTranspose2d,
                     kernel_size=4,
                     stride=2,
                     padding=1,
                     bias=False,
+                )
+            )
+        layers.extend(
+            [
+                nn.ConvTranspose2d(
+                    self.channels, 3, kernel_size=4, stride=2, padding=1, bias=False
                 ),
+                nn.Sigmoid(),
             ]
-            layers.extend(segment)
-        final_segment = [
-            nn.BatchNorm2d(self.channels),
-            nn.LeakyReLU(True),
-            nn.ConvTranspose2d(
-                self.channels,
-                3,
-                kernel_size=4,
-                stride=2,
-                padding=1,
-                bias=False,
-            ),
-            nn.Sigmoid(),
-        ]
-        layers.extend(final_segment)
+        )
 
         self.decoder = nn.Sequential(*layers)
 

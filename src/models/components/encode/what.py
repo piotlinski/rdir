@@ -4,6 +4,8 @@ from typing import Dict, Tuple
 import torch
 import torch.nn as nn
 
+from src.models.components import build_conv2d_block
+
 
 class WhatEncoder(nn.Module):
     """Module for encoding input image features to what latent representation."""
@@ -47,29 +49,23 @@ class WhatEncoder(nn.Module):
         hidden_size = 2 * out_size
 
         layers = [
-            nn.Conv2d(
+            build_conv2d_block(
                 in_channels=in_channels,
                 out_channels=hidden_size,
                 kernel_size=1,
                 bias=False,
-            ),
-            nn.BatchNorm2d(hidden_size),
-            nn.LeakyReLU(True),
+            )
         ]
         for _ in range(self.num_hidden):
-            layers.extend(
-                [
-                    nn.Conv2d(
-                        in_channels=hidden_size,
-                        out_channels=hidden_size,
-                        kernel_size=3,
-                        stride=1,
-                        padding=1,
-                        bias=False,
-                    ),
-                    nn.BatchNorm2d(hidden_size),
-                    nn.LeakyReLU(True),
-                ]
+            layers.append(
+                build_conv2d_block(
+                    in_channels=hidden_size,
+                    out_channels=hidden_size,
+                    kernel_size=3,
+                    stride=1,
+                    padding=1,
+                    bias=False,
+                )
             )
         layers.append(
             nn.Conv2d(in_channels=hidden_size, out_channels=out_size, kernel_size=1)

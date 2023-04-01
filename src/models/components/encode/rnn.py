@@ -4,6 +4,8 @@ from typing import Any, Dict, Optional, Tuple, Type, Union
 import torch
 from torch import nn
 
+from src.models.components import build_conv2d_block
+
 PackedSequence = nn.utils.rnn.PackedSequence
 Sequence = Union[PackedSequence, Tuple[PackedSequence, ...], Dict[str, PackedSequence]]
 Data = Union[torch.Tensor, Tuple[torch.Tensor, ...], Dict[str, torch.Tensor]]
@@ -98,38 +100,67 @@ class SeqRNN(nn.Module):
 
         self._post: Optional[nn.Module] = None
         if rnn_kwargs["bidirectional"]:
-            self._post = nn.Linear(rnn_kwargs["hidden_size"] * 2, rnn_kwargs["hidden_size"])
-
+            self._post = nn.Linear(
+                rnn_kwargs["hidden_size"] * 2, rnn_kwargs["hidden_size"]
+            )
 
     @staticmethod
     def preprocess_sequence(
-        sequence: PackedSequence,
-    ) -> Tuple[PackedSequence, Tuple[int, ...]]:
-        data, batch_sizes, sorted_indices, unsorted_indices = sequence
-        n_objects = data.shape[2] * data.shape[3]
-        data = data.permute(0, 2, 3, 1).contiguous()
+        sequences: Dict[str, PackedSequence],
+    ) -> Tuple[PackedSequence, Dict[str, Tuple[int, ...]]]:
+        shapes = {}
+        datas = []
+        batch_sizes = []
+        sorted_indices = []
+        unsorted_indices = []
+
+        for key, seq in sequences.items():
+            data, batch_szs, sorted_inds, unsorted_inds = seq
+            n_objects = data.shape[2] * data.shape[3]
+            data = data.permute(0, 2, 3, 1).contiguous()
+            shapes[key] = data.shape
+            datas.append(data.view(-1, data.shape[-1]))
+            batch_sizes.append(batch_szs * n_objects)
+            sorted_indices.append(sorted_inds)
+            unsorted_indices.append(unsorted_inds)
+
         return (
             PackedSequence(
-                data.view(-1, data.shape[-1]),
-                batch_sizes * n_objects,
-                sorted_indices,
-                unsorted_indices,
+                torch.cat(datas, dim=0),
+                torch.cat(batch_sizes),
+                torch.cat(sorted_indices),
+                torch.cat(unsorted_indices),
             ),
-            data.shape,
+            shapes,
         )
 
     @staticmethod
     def postprocess_sequence(
-        sequence: PackedSequence, permuted_shape: Tuple[int, ...]
-    ) -> PackedSequence:
-        data, batch_sizes, sorted_indices, unsorted_indices = sequence
-        n_objects = permuted_shape[1] * permuted_shape[2]
-        data = data.view(*permuted_shape).permute(0, 3, 1, 2).contiguous()
-        return PackedSequence(
-            data, batch_sizes / n_objects, sorted_indices, unsorted_indices
-        )
+        sequence: PackedSequence, permuted_shapes: Dict[str, Tuple[int, ...]]
+    ) -> Dict[str, PackedSequence]:
+        ret = {}
 
-    def forward(self, x: PackedSequence) -> PackedSequence:
+        data, batch_sizes, sorted_indices, unsorted_indices = sequence
+        start_idx = 0
+        for key, shape in permuted_shapes.items():
+            size = shape[0] * shape[1] * shape[2]
+            n_objects = shape[1] * shape[2]
+            key_data = data[start_idx : start_idx + size]
+            key_batch_sizes = batch_sizes[start_idx : start_idx + size]
+            key_sorted_indices = sorted_indices[start_idx : start_idx + size]
+            key_unsorted_indices = unsorted_indices[start_idx : start_idx + size]
+            key_data = key_data.view(*shape).permute(0, 3, 1, 2).contiguous()
+            ret[key] = PackedSequence(
+                key_data,
+                key_batch_sizes / n_objects,
+                key_sorted_indices,
+                key_unsorted_indices
+            )
+            start_idx += size
+
+        return ret
+
+    def forward(self, x: Dict[str, PackedSequence]) -> Dict[str, PackedSequence]:
         x, permuted_shape = self.preprocess_sequence(x)
         x, _ = self._rnn(x)
         if self._post is not None:
@@ -166,71 +197,56 @@ class SeqEncoder(nn.Module):
 
         self._encoders = self._build_encoders()
 
-    def _build_feature_encoder(self, in_channels: int) -> nn.ModuleList:
-        """Prepare single feature sequence encoder."""
-        pre_layers = [
-            nn.Conv2d(
-                in_channels,
-                in_channels,
+    def _build_hidden(self, channels: int) -> nn.Module:
+        """Prepare single hidden conv layers set."""
+        modules = []
+        for _ in range(self.num_hidden):
+            modules.append(build_conv2d_block(
+                channels,
+                channels,
                 kernel_size=self.kernel_size,
                 padding=self.kernel_size // 2,
                 bias=False,
-            ),
-            nn.BatchNorm2d(in_channels),
-            nn.LeakyReLU(True),
-        ]
-        for _ in range(self.num_hidden - 1):
-            pre_layers.extend(
-                [
-                    nn.Conv2d(
-                        in_channels,
-                        in_channels,
-                        kernel_size=self.kernel_size,
-                        padding=self.kernel_size // 2,
-                        bias=False,
-                    ),
-                    nn.BatchNorm2d(in_channels),
-                    nn.LeakyReLU(True),
-                ]
-            )
-        pre = nn.Sequential(*pre_layers)
+            ))
+        return nn.Sequential(*modules)
 
-        rnn = SeqRNN(
+    def _build_feature_encoders(self, channels: int) -> nn.ModuleList:
+        """Prepare single feature encoders."""
+        return nn.ModuleList([
+            self._build_hidden(channels),
+            self._build_hidden(channels),
+        ])
+
+    def _build_encoders(self) -> nn.ModuleDict:
+        """Build models for recurrent encoding latent representation."""
+        modules = {}
+        for idx in self.anchors:
+            channels = self.out_channels[idx]
+            pre, post = self._build_feature_encoders(channels)
+            modules[f"{idx}_pre"] = pre
+            modules[f"{idx}_post"] = post
+
+        channels = set(self.out_channels.values()).pop()
+        modules["rnn"] = SeqRNN(
             self.rnn_cls,
-            input_size=in_channels,
-            hidden_size=in_channels,
+            input_size=channels,
+            hidden_size=channels,
             bidirectional=self.bidirectional,
             batch_first=True,
             num_layers=self.n_cells,
         )
 
-        post_layers = self.num_hidden * [
-            nn.Conv2d(
-                in_channels,
-                in_channels,
-                kernel_size=self.kernel_size,
-                padding=self.kernel_size // 2,
-                bias=False,
-            ),
-            nn.BatchNorm2d(in_channels),
-            nn.LeakyReLU(True),
-        ]
-        post = nn.Sequential(*post_layers)
-        return nn.ModuleList([pre, rnn, post])
-
-    def _build_encoders(self) -> nn.ModuleDict:
-        """Build models for recurrent encoding latent representation."""
-        modules = {}
-        for idx, num_anchors in self.anchors.items():
-            in_channels = self.out_channels[idx]
-            modules[str(idx)] = self._build_feature_encoder(in_channels)
         return nn.ModuleDict(modules)
 
     def forward(self, x: Dict[str, PackedSequence]) -> Dict[str, PackedSequence]:
         ret = {}
+
         for idx, feature in x.items():
-            pre_encoder, rnn, post_encoder = self._encoders[str(idx)]
-            pre = packed_forward(pre_encoder, feature)
-            seq = rnn(pre)
-            ret[idx] = packed_forward(post_encoder, seq)
+            ret[idx] = packed_forward(self._encoders[f"{idx}_pre"], feature)
+
+        ret = self._encoders["rnn"](ret)
+
+        for idx, feature in ret.items():
+            ret[idx] = packed_forward(self._encoders[f"{idx}_post"], feature)
+
         return ret

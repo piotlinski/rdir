@@ -186,13 +186,16 @@ class RNNEncoder(nn.Module):
         self.encoder = encoder
         self.seq_enc = SeqEncoder(
             anchors=self.encoder.head.num_anchors,
-            out_channels=self.encoder.neck.out_channels,
+            out_channels=self.encoder.mixer.out_channels,
             num_hidden=n_rnn_hidden,
             kernel_size=rnn_kernel_size,
             rnn_cls=rnn_cls,
             n_cells=n_rnn_cells,
             bidirectional=rnn_bidirectional,
         ).requires_grad_(train_rnn)
+        self.seq_mixer = Mixer(
+            self.encoder.head.num_anchors, self.encoder.mixer.out_channels
+        )
 
     def forward(self, images: PackedSequence) -> DIRLatents:
         """Encode images sequentially."""
@@ -211,7 +214,9 @@ class RNNEncoder(nn.Module):
         if self.encoder.cloned_neck is not None:
             intermediates = packed_forward(self.encoder.cloned_neck, features)
 
+        intermediates = packed_forward(self.encoder.mixer, intermediates)
         intermediates = self.seq_enc(intermediates)
+        intermediates = packed_forward(self.seq_mixer, intermediates)
 
         z_what = packed_forward(self.encoder.what_enc, intermediates)
         z_depth = packed_forward(self.encoder.depth_enc, intermediates)

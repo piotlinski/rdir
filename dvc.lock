@@ -4,8 +4,8 @@ stages:
     cmd: mkdir data/multiscalemnist && tar -xzvf data/multiscalemnist.tar.gz -C data/multiscalemnist
     deps:
     - path: data/multiscalemnist.tar.gz
-      md5: fc3dac685f593f4c0be7e469d398c5f9
-      size: 169034179
+      md5: fba300a3d939083fc7013cab2a14e2ce
+      size: 216896806
   extract@dsprites:
     cmd: mkdir data/dsprites && tar -xzvf data/dsprites.tar.gz -C data/dsprites
     deps:

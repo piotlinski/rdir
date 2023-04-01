@@ -1,6 +1,7 @@
 import argparse
 import os
 from pathlib import Path
+import pickle
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,8 +10,8 @@ import seaborn as sns
 import torch
 import torch.nn as nn
 from scipy.optimize import linear_sum_assignment
-from sklearn.manifold import TSNE
 from tqdm.auto import tqdm
+from umap import UMAP
 
 from src.models.rdir_module import RDIR
 from src.datamodules.dir import RDIRDataModule
@@ -47,10 +48,13 @@ def iou(boxes_1: np.ndarray, boxes_2: np.ndarray, eps: float = 1e-5) -> np.ndarr
     return intersections / (unions + eps)
 
 
-def load_rdir(checkpoint: str, data_dir: str, batch_size: int = 1, num_workers: int = 0):
-    encoder = torch.load(checkpoint)["hyper_parameters"]["encoder"]
-    encoder["yolo"] = [p.replace("/workspace", str(Path.cwd())) for p in encoder["yolo"]]
-    config_path = encoder["yolo"][0]
+def load_rdir(checkpoint: str, data_dir: str, batch_size: int = 1, num_workers: int = 0, fallback_config: str = ""):
+    try:
+        encoder = torch.load(checkpoint)["hyper_parameters"]["encoder"]
+        encoder["yolo"] = [p.replace("/workspace", str(Path.cwd())) for p in encoder["yolo"]]
+        config_path = encoder["yolo"][0]
+    except (KeyError, TypeError):
+        config_path = fallback_config
 
     model = RDIR.load_from_checkpoint(checkpoint, encoder=encoder).eval()
 
@@ -72,6 +76,7 @@ def main():
     parser.add_argument("--gpu", type=str, default="0")
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--num_workers", type=int, default=8)
+    parser.add_argument("--fallback_config", type=str, default="")
     parser.add_argument("checkpoint", type=str)
     parser.add_argument("data", type=str)
 
@@ -79,7 +84,7 @@ def main():
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
 
-    model, datamodule = load_rdir(args.checkpoint, args.data, batch_size=args.batch_size, num_workers=args.num_workers)
+    model, datamodule = load_rdir(args.checkpoint, args.data, batch_size=args.batch_size, num_workers=args.num_workers, fallback_config=args.fallback_config)
 
     model = model.cuda()
     datamodule.setup()
@@ -114,8 +119,8 @@ def main():
     representation = np.concatenate(representation)
     representation_classes = np.concatenate(representation_classes)
 
-    tsne = TSNE(n_components=2, n_jobs=args.num_workers, verbose=1)
-    z = tsne.fit_transform(representation)
+    reducer = UMAP(n_components=2, n_jobs=args.num_workers, verbose=1)
+    z = reducer.fit_transform(representation)
     df = pd.DataFrame()
     df["y"] = representation_classes
     df["x1"] = z[:,0]
@@ -126,7 +131,13 @@ def main():
         palette=sns.color_palette("hls", max(df.y) + 1),
         data=df
     ).set(title="Latent space visualization")
-    plt.savefig(f"tsne_{args.checkpoint.split('/')[-1]}_{args.data.split('/')[-1]}.png")
+
+    filename = f"umap_{args.checkpoint.split('/')[-1]}_{args.data.split('/')[-1]}"
+    plt.savefig(f"{filename}.png")
+    with open(f"{filename}.pickle", "wb") as fp:
+        pickle.dump([representation, representation_classes], fp)
+    with open(f"{filename}_reducer.pickle", "wb") as fp:
+        pickle.dump(reducer, fp)
 
 
 if __name__ == "__main__":

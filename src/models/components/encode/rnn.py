@@ -124,7 +124,7 @@ class SeqRNN(nn.Module):
                 torch.cat(datas, dim=0),
                 lengths=torch.cat(lengths),
                 batch_first=True,
-                enforce_sorted=False,
+                enforce_sorted=True,
             ),
             shapes,
         )
@@ -147,7 +147,7 @@ class SeqRNN(nn.Module):
             k_data = k_data.view(*shape).permute(0, 3, 4, 1, 2).contiguous()
             k_lengths = k_lengths[: shape[0]]
             ret[k] = nn.utils.rnn.pack_padded_sequence(
-                k_data, lengths=k_lengths, batch_first=True, enforce_sorted=False
+                k_data, lengths=k_lengths, batch_first=True, enforce_sorted=True
             )
 
         return ret

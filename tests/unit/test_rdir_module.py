@@ -23,7 +23,7 @@ def test_rdir_encoder_forward(dir):
     model = RDIR(dir)
     inputs = torch.rand(batch_size, n_objects, 3, image_size, image_size)
     packed_inputs = torch.nn.utils.rnn.pack_padded_sequence(
-        inputs, [n_objects] * batch_size, batch_first=True, enforce_sorted=False
+        inputs, [n_objects] * batch_size, batch_first=True
     )
 
     latents = model.encoder_forward(packed_inputs)
@@ -53,8 +53,7 @@ def test_rdir_decoder_forward(dir):
     pack = partial(
         torch.nn.utils.rnn.pack_padded_sequence,
         lengths=[n_objects] * batch_size,
-        batch_first=True,
-        enforce_sorted=False,
+        batch_first=True
     )
     z_where = pack(torch.rand(batch_size, n_objects, grid_objects, 4))
     z_present = pack(torch.randint(0, 2, (batch_size, n_objects, grid_objects, 1)))

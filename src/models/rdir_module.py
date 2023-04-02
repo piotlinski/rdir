@@ -1,6 +1,6 @@
 """R-DIR model definition."""
 from functools import partial
-from typing import Tuple, Type
+from typing import Tuple
 
 import pyro
 import pyro.distributions as dist
@@ -277,8 +277,9 @@ class RDIR(DIR):
         """Common model running step for training and validation."""
         images, boxes = batch
 
-        images = nn.utils.rnn.pack_sequence(images, enforce_sorted=False)
-        boxes = nn.utils.rnn.pack_sequence(boxes, enforce_sorted=False)
+        images = nn.utils.rnn.pack_sequence(images)
+        boxes = nn.utils.rnn.pack_sequence(boxes)
+
         self._store["images"] = images.data.detach()
         self._store["boxes"] = boxes.data.detach()
 

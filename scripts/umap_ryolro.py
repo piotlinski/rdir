@@ -94,8 +94,8 @@ def main():
     representation_classes = []
 
     for images, boxes in tqdm(dataloader):
-        images = nn.utils.rnn.pack_sequence(images, enforce_sorted=False)
-        boxes = nn.utils.rnn.pack_sequence(boxes, enforce_sorted=False)
+        images = nn.utils.rnn.pack_sequence(images)
+        boxes = nn.utils.rnn.pack_sequence(boxes)
 
         latents = model.encoder_forward(images.cuda())
         (z_where, z_present, z_what, z_depth) = model.sample_latents(latents)

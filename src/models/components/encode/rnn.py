@@ -110,26 +110,21 @@ class SeqRNN(nn.Module):
     ) -> Tuple[PackedSequence, Dict[str, Tuple[int, ...]]]:
         shapes = {}
         datas = []
-        batch_sizes = []
-        sorted_indices = []
-        unsorted_indices = []
+        lengths = []
 
         for key, seq in sequences.items():
-            data, batch_szs, sorted_inds, unsorted_inds = seq
-            n_objects = data.shape[2] * data.shape[3]
-            data = data.permute(0, 2, 3, 1).contiguous()
+            data, seq_lengths = nn.utils.rnn.pad_packed_sequence(seq, batch_first=True)
+            data = data.permute(0, 3, 4, 1, 2).contiguous()
             shapes[key] = data.shape
-            datas.append(data.view(-1, data.shape[-1]))
-            batch_sizes.append(batch_szs * n_objects)
-            sorted_indices.append(sorted_inds)
-            unsorted_indices.append(unsorted_inds)
+            datas.append(data.view(-1, *data.shape[-2:]))
+            lengths.append(seq_lengths.repeat(data.shape[1] * data.shape[2]))
 
         return (
-            PackedSequence(
+            nn.utils.rnn.pack_padded_sequence(
                 torch.cat(datas, dim=0),
-                torch.cat(batch_sizes),
-                torch.cat(sorted_indices),
-                torch.cat(unsorted_indices),
+                lengths=torch.cat(lengths),
+                batch_first=True,
+                enforce_sorted=False,
             ),
             shapes,
         )
@@ -140,23 +135,20 @@ class SeqRNN(nn.Module):
     ) -> Dict[str, PackedSequence]:
         ret = {}
 
-        data, batch_sizes, sorted_indices, unsorted_indices = sequence
-        start_idx = 0
-        for key, shape in permuted_shapes.items():
-            size = shape[0] * shape[1] * shape[2]
-            n_objects = shape[1] * shape[2]
-            key_data = data[start_idx : start_idx + size]
-            key_batch_sizes = batch_sizes[start_idx : start_idx + size]
-            key_sorted_indices = sorted_indices[start_idx : start_idx + size]
-            key_unsorted_indices = unsorted_indices[start_idx : start_idx + size]
-            key_data = key_data.view(*shape).permute(0, 3, 1, 2).contiguous()
-            ret[key] = PackedSequence(
-                key_data,
-                key_batch_sizes / n_objects,
-                key_sorted_indices,
-                key_unsorted_indices
+        data, seq_lenghts = nn.utils.rnn.pad_packed_sequence(sequence, batch_first=True)
+
+        splits = [s[0] * s[1] * s[2] for s in permuted_shapes.values()]
+        s_data = torch.split(data, splits, dim=0)
+        s_lengths = torch.split(seq_lenghts, splits, dim=0)
+
+        for (k, shape), k_data, k_lengths in zip(
+            permuted_shapes.items(), s_data, s_lengths
+        ):
+            k_data = k_data.view(*shape).permute(0, 3, 4, 1, 2).contiguous()
+            k_lengths = k_lengths[: shape[0]]
+            ret[k] = nn.utils.rnn.pack_padded_sequence(
+                k_data, lengths=k_lengths, batch_first=True, enforce_sorted=False
             )
-            start_idx += size
 
         return ret
 
@@ -201,21 +193,25 @@ class SeqEncoder(nn.Module):
         """Prepare single hidden conv layers set."""
         modules = []
         for _ in range(self.num_hidden):
-            modules.append(build_conv2d_block(
-                channels,
-                channels,
-                kernel_size=self.kernel_size,
-                padding=self.kernel_size // 2,
-                bias=False,
-            ))
+            modules.append(
+                build_conv2d_block(
+                    channels,
+                    channels,
+                    kernel_size=self.kernel_size,
+                    padding=self.kernel_size // 2,
+                    bias=False,
+                )
+            )
         return nn.Sequential(*modules)
 
     def _build_feature_encoders(self, channels: int) -> nn.ModuleList:
         """Prepare single feature encoders."""
-        return nn.ModuleList([
-            self._build_hidden(channels),
-            self._build_hidden(channels),
-        ])
+        return nn.ModuleList(
+            [
+                self._build_hidden(channels),
+                self._build_hidden(channels),
+            ]
+        )
 
     def _build_encoders(self) -> nn.ModuleDict:
         """Build models for recurrent encoding latent representation."""

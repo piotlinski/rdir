@@ -46,7 +46,7 @@ class WhatEncoder(nn.Module):
     def _build_feature_encoder(self, in_channels: int, num_anchors: int) -> nn.Module:
         """Prepare single feature encoder."""
         out_size = num_anchors * self.latent_dim
-        hidden_size = 2 * out_size
+        hidden_size = (in_channels + out_size) // 2
 
         layers = [
             build_conv2d_block(

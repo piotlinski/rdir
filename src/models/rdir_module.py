@@ -50,50 +50,59 @@ class RDIR(DIR):
 
         self.save_hyperparameters()
 
-
     def save_requires_grad(self):
+        encoder = self.rnn_encoder.encoder
         self.trained = {
-            "enc_backbone": self.encoder.backbone.requires_grad,
-            "enc_neck": self.encoder.neck.requires_grad,
-            "enc_head": self.encoder.head.requires_grad,
-            "enc_mixer": self.encoder.mixer.requires_grad,
-            "enc_what_enc": self.encoder.what_enc.requires_grad,
-            "enc_depth_enc": self.encoder.depth_enc.requires_grad,
+            "enc_backbone": next(encoder.backbone.parameters()).requires_grad,
+            "enc_neck": next(encoder.neck.parameters()).requires_grad,
+            "enc_head": next(encoder.head.parameters()).requires_grad,
+            "enc_mixer": next(encoder.mixer.parameters()).requires_grad,
+            "enc_what_enc": next(encoder.what_enc.parameters()).requires_grad,
+            "enc_depth_enc": next(encoder.depth_enc.parameters()).requires_grad,
+            "dec_what_dec": next(self.decoder.what_dec.parameters()).requires_grad,
         }
-        if self.encoder.cloned_backbone is not None:
-            self.trained["enc_c_backbone"] = self.encoder.cloned_backbone.requires_grad
-        if self.encoder.cloned_neck is not None:
-            self.trained["enc_c_neck"] = self.encoder.cloned_neck.requires_grad
+        if encoder.cloned_backbone is not None:
+            self.trained["enc_c_backbone"] = next(
+                encoder.cloned_backbone.parameters()
+            ).requires_grad
+        if encoder.cloned_neck is not None:
+            self.trained["enc_c_neck"] = next(
+                encoder.cloned_neck.parameters()
+            ).requires_grad
 
     def set_pretrain(self):
         """Set pretrain mode."""
         logger.info("Setting pretrain mode")
         self._is_pretrain = True
 
-        self.encoder.backbone.requires_grad = False
-        self.encoder.neck.requires_grad = False
-        self.encoder.head.requires_grad = False
-        self.encoder.mixer.requires_grad = False
-        self.encoder.what_enc.requires_grad = False
-        self.encoder.depth_enc.requires_grad = False
-        if self.encoder.cloned_backbone is not None:
-            self.encoder.cloned_backbone.requires_grad = False
-        if self.encoder.cloned_neck is not None:
-            self.encoder.cloned_neck.requires_grad = False
+        encoder = self.rnn_encoder.encoder
+        encoder.backbone.requires_grad_(False)
+        encoder.neck.requires_grad_(False)
+        encoder.head.requires_grad_(False)
+        encoder.mixer.requires_grad_(False)
+        encoder.what_enc.requires_grad_(False)
+        encoder.depth_enc.requires_grad_(False)
+        self.decoder.what_dec.requires_grad_(False)
+        if encoder.cloned_backbone is not None:
+            encoder.cloned_backbone.requires_grad_(False)
+        if encoder.cloned_neck is not None:
+            encoder.cloned_neck.requires_grad_(False)
 
     def set_train(self):
         """Set train mode."""
         logger.info("Setting train mode")
-        self.encoder.backbone.requires_grad = self.trained["enc_backbone"]
-        self.encoder.neck.requires_grad = self.trained["enc_neck"]
-        self.encoder.head.requires_grad = self.trained["enc_head"]
-        self.encoder.mixer.requires_grad = self.trained["enc_mixer"]
-        self.encoder.what_enc.requires_grad = self.trained["enc_what_enc"]
-        self.encoder.depth_enc.requires_grad = self.trained["enc_depth_enc"]
-        if self.encoder.cloned_backbone is not None:
-            self.encoder.cloned_backbone.requires_grad = self.trained["enc_c_backbone"]
-        if self.encoder.cloned_neck is not None:
-            self.encoder.cloned_neck.requires_grad = self.trained["enc_c_neck"]
+        encoder = self.rnn_encoder.encoder
+        encoder.backbone.requires_grad_(self.trained["enc_backbone"])
+        encoder.neck.requires_grad_(self.trained["enc_neck"])
+        encoder.head.requires_grad_(self.trained["enc_head"])
+        encoder.mixer.requires_grad_(self.trained["enc_mixer"])
+        encoder.what_enc.requires_grad_(self.trained["enc_what_enc"])
+        encoder.depth_enc.requires_grad_(self.trained["enc_depth_enc"])
+        self.decoder.what_dec.requires_grad_(self.trained["dec_what_dec"])
+        if encoder.cloned_backbone is not None:
+            encoder.cloned_backbone.requires_grad_(self.trained["enc_c_backbone"])
+        if encoder.cloned_neck is not None:
+            encoder.cloned_neck.requires_grad_(self.trained["enc_c_neck"])
 
         self._is_pretrain = False
 

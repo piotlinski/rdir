@@ -11,3 +11,5 @@ rnn_kernel_size: 5
 rnn_cls: gru
 n_rnn_cells: 2
 rnn_bidirectional: false
+pretrain_steps: 0
+

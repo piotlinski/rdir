@@ -1,5 +1,6 @@
 """R-DIR model definition."""
 from functools import partial
+import logging
 from typing import Tuple
 
 import pyro
@@ -15,6 +16,10 @@ from src.models.components.latents import DIRLatents, DIRRepresentation
 from src.models.dir_module import DIR
 
 
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+
 class RDIR(DIR):
     """Recurrent DIR."""
 
@@ -26,6 +31,7 @@ class RDIR(DIR):
         n_rnn_cells: int = 2,
         rnn_bidirectional: bool = False,
         train_rnn: bool = True,
+        pretrain_steps: int = 0,
         **dir_kwargs,
     ):
         super().__init__(**dir_kwargs)
@@ -38,8 +44,58 @@ class RDIR(DIR):
             rnn_bidirectional=rnn_bidirectional,
             train_rnn=train_rnn,
         )
+        self.pretrain_steps = pretrain_steps
+        self.save_requires_grad()
+        self._is_pretrain = False
 
         self.save_hyperparameters()
+
+
+    def save_requires_grad(self):
+        self.trained = {
+            "enc_backbone": self.encoder.backbone.requires_grad,
+            "enc_neck": self.encoder.neck.requires_grad,
+            "enc_head": self.encoder.head.requires_grad,
+            "enc_mixer": self.encoder.mixer.requires_grad,
+            "enc_what_enc": self.encoder.what_enc.requires_grad,
+            "enc_depth_enc": self.encoder.depth_enc.requires_grad,
+        }
+        if self.encoder.cloned_backbone is not None:
+            self.trained["enc_c_backbone"] = self.encoder.cloned_backbone.requires_grad
+        if self.encoder.cloned_neck is not None:
+            self.trained["enc_c_neck"] = self.encoder.cloned_neck.requires_grad
+
+    def set_pretrain(self):
+        """Set pretrain mode."""
+        logger.info("Setting pretrain mode")
+        self._is_pretrain = True
+
+        self.encoder.backbone.requires_grad = False
+        self.encoder.neck.requires_grad = False
+        self.encoder.head.requires_grad = False
+        self.encoder.mixer.requires_grad = False
+        self.encoder.what_enc.requires_grad = False
+        self.encoder.depth_enc.requires_grad = False
+        if self.encoder.cloned_backbone is not None:
+            self.encoder.cloned_backbone.requires_grad = False
+        if self.encoder.cloned_neck is not None:
+            self.encoder.cloned_neck.requires_grad = False
+
+    def set_train(self):
+        """Set train mode."""
+        logger.info("Setting train mode")
+        self.encoder.backbone.requires_grad = self.trained["enc_backbone"]
+        self.encoder.neck.requires_grad = self.trained["enc_neck"]
+        self.encoder.head.requires_grad = self.trained["enc_head"]
+        self.encoder.mixer.requires_grad = self.trained["enc_mixer"]
+        self.encoder.what_enc.requires_grad = self.trained["enc_what_enc"]
+        self.encoder.depth_enc.requires_grad = self.trained["enc_depth_enc"]
+        if self.encoder.cloned_backbone is not None:
+            self.encoder.cloned_backbone.requires_grad = self.trained["enc_c_backbone"]
+        if self.encoder.cloned_neck is not None:
+            self.encoder.cloned_neck.requires_grad = self.trained["enc_c_neck"]
+
+        self._is_pretrain = False
 
     def encoder_forward(self, x: PackedSequence) -> DIRLatents:
         """Forward pass through the encoder."""
@@ -276,6 +332,12 @@ class RDIR(DIR):
     ):
         """Common model running step for training and validation."""
         images, boxes = batch
+
+        if self.global_step < self.pretrain_steps and not self._is_pretrain:
+            self.set_pretrain()
+
+        if self.global_step >= self.pretrain_steps and self._is_pretrain:
+            self.set_train()
 
         images = nn.utils.rnn.pack_sequence(images)
         boxes = nn.utils.rnn.pack_sequence(boxes)

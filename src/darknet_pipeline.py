@@ -94,7 +94,7 @@ def docker_container(
     name: str = "dev",
 ):
     """Run docker container and take care of closing and removing it."""
-    with ExitStack() as stack:
+    with ExitStack():
         try:
             name = f"{name}-gpu-{gpu}-{str(uuid.uuid4())[:8]}"
             run_args = run_args or []
@@ -165,7 +165,7 @@ def yolo(config: DictConfig) -> str:
                     "docker",
                     "cp",
                     f"{container}:/home/user/darknet/data/model_final.weights",
-                    trained,
+                    str(trained),
                 ]
             )
     return str(trained)

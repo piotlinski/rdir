@@ -18,8 +18,7 @@ wandb
 # --------- linters --------- #
 pre-commit      # hooks for applying linters on commit
 black           # code formatting
-isort           # import sorting
-flake8          # code analysis
+ruff            # code analysis
 nbstripout      # remove output from jupyter notebooks
 
 # --------- others --------- #

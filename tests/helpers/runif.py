@@ -6,17 +6,17 @@ import torch
 from packaging.version import Version
 from pkg_resources import get_distribution
 
-"""
-Adapted from:
-    https://github.com/PyTorchLightning/pytorch-lightning/blob/master/tests/helpers/runif.py
-"""
-
 from tests.helpers.module_available import (
     _DEEPSPEED_AVAILABLE,
     _FAIRSCALE_AVAILABLE,
     _IS_WINDOWS,
     _RPC_AVAILABLE,
 )
+
+"""
+Adapted from:
+    https://github.com/PyTorchLightning/pytorch-lightning/blob/master/tests/helpers/runif.py
+"""
 
 
 class RunIf:
@@ -74,7 +74,11 @@ class RunIf:
             reasons.append(f"torch<{max_torch}")
 
         if min_python:
-            py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            py_version = (
+                f"{sys.version_info.major}"
+                f".{sys.version_info.minor}"
+                f".{sys.version_info.micro}"
+            )
             conditions.append(Version(py_version) < Version(min_python))
             reasons.append(f"python>={min_python}")
 

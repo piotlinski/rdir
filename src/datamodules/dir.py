@@ -114,10 +114,10 @@ class RDIRDataModule(pl.LightningDataModule):
         if not self.prepare:
             return
         data_path = Path(self.data_dir)
-        files = set(str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*"))
+        files = {str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*")}
 
         with tarfile.open(f"{self.data_dir}.tar.gz", "r:gz") as trf:
-            archive_files = set(f for f in trf.getnames())
+            archive_files = set(trf.getnames())
             archive_files.remove(".")
 
             if archive_files != files:

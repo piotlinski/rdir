@@ -4,7 +4,8 @@ from tests.helpers.run_command import run_command
 from tests.helpers.runif import RunIf
 
 """
-A couple of sanity checks to make sure the model doesn't crash with different running options.
+A couple of sanity checks to make sure
+the model doesn't crash with different running options.
 """
 
 
@@ -23,7 +24,7 @@ def test_cpu(base_command):
 
 
 # use RunIf to skip execution of some tests, e.g. when no gpus are available
-@RunIf(min_gpus=1)
+@RunIf(min_gpus=1)  # type: ignore
 @pytest.mark.slow
 def test_gpu(base_command):
     """Test running 1 epoch on GPU."""
@@ -35,7 +36,7 @@ def test_gpu(base_command):
     run_command(command)
 
 
-@RunIf(min_gpus=1)
+@RunIf(min_gpus=1)  # type: ignore
 @pytest.mark.slow
 def test_mixed_precision(base_command):
     """Test running 1 epoch with pytorch native automatic mixed precision (AMP)."""

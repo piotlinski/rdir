@@ -68,7 +68,8 @@ def print_config(
 
     Args:
         config (DictConfig): Configuration composed by Hydra.
-        print_order (Sequence[str], optional): Determines in what order config components are printed.
+        print_order (Sequence[str], optional): Determines in what order config
+            components are printed.
         resolve (bool, optional): Whether to resolve reference fields of DictConfig.
     """
 
@@ -162,4 +163,4 @@ def finish(
         if isinstance(lg, pl.loggers.wandb.WandbLogger):
             import wandb
 
-            wandb.finish()
+            wandb.finish()  # type: ignore

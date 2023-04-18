@@ -90,13 +90,13 @@ class Mixer(nn.Module):
             ret[key] = self._downscalers[str(key)](features[key])
 
         iterable = list(ret.items())
-        for (l, l_features), (s, s_features) in zip(iterable, iterable[1:]):
-            downscaler, upscaler = self._mixers[f"{l},{s}"]
+        for (l_idx, l_features), (s_idx, s_features) in zip(iterable, iterable[1:]):
+            downscaler, upscaler = self._mixers[f"{l_idx},{s_idx}"]
             downscaled = downscaler(l_features)
             upscaled = upscaler(s_features)
 
-            ret[l] = torch.cat([ret[l], upscaled], dim=1)
-            ret[s] = torch.cat([ret[s], downscaled], dim=1)
+            ret[l_idx] = torch.cat([ret[l_idx], upscaled], dim=1)
+            ret[s_idx] = torch.cat([ret[s_idx], downscaled], dim=1)
 
         for idx, feats in ret.items():
             ret[idx] = self._mixers[str(idx)](feats)

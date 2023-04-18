@@ -1,5 +1,5 @@
 """DIR heads for z_where and z_present."""
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
@@ -22,7 +22,7 @@ class PresentHead(nn.Module):
         :param classes: list of classes to filter
         """
         super().__init__()
-        self.index = slice(None)
+        self.index: Union[slice, Tuple[int, ...]] = slice(None)
         if classes is not None:
             self.index = classes
 

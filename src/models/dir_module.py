@@ -13,7 +13,7 @@ import torch.nn.functional as F
 from omegaconf import DictConfig
 from torchmetrics import MeanSquaredError
 
-import wandb
+import wandb  # type: ignore
 from src.models.components.decode.decoder import Decoder
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import Encoder
@@ -164,24 +164,24 @@ class DIR(pl.LightningModule):
         return z_present
 
     def _sample_what(self, z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        z_what, z_what_scale = z_what
+        z_what_loc, z_what_scale = z_what
 
-        self._store["z_what_loc"] = z_what.detach()
+        self._store["z_what_loc"] = z_what_loc.detach()
 
         if self.is_what_probabilistic:  # else use loc
-            z_what = dist.Normal(z_what, z_what_scale).sample()
+            z_what_loc = dist.Normal(z_what_loc, z_what_scale).sample()
 
-        return z_what
+        return z_what_loc
 
     def _sample_depth(self, z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-        z_depth, z_depth_scale = z_depth
+        z_depth_loc, z_depth_scale = z_depth
 
-        self._store["z_depth_loc"] = z_depth.detach()
+        self._store["z_depth_loc"] = z_depth_loc.detach()
 
         if self.is_depth_probabilistic:  # else use loc
-            z_depth = dist.Normal(z_depth, z_depth_scale).sample()
+            z_depth_loc = dist.Normal(z_depth_loc, z_depth_scale).sample()
 
-        return z_depth
+        return z_depth_loc
 
     def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
         """Sample latents to create representation."""
@@ -280,33 +280,33 @@ class DIR(pl.LightningModule):
             return z_present
 
         def _what(z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-            z_what, z_what_scale = z_what
-            n_objects = z_what.shape[1]
+            z_what_loc, z_what_scale = z_what
+            n_objects = z_what_loc.shape[1]
 
             if self.is_what_probabilistic:  # else use loc
                 z_what_loc = x.new_zeros(batch_size, n_objects, self.z_what_size)
                 z_what_scale = torch.ones_like(z_what_loc)
                 with poutine.scale(scale=self.what_coef(batch_size, n_objects)):
-                    z_what = pyro.sample(
+                    z_what_loc = pyro.sample(
                         "z_what", dist.Normal(z_what_loc, z_what_scale).to_event(2)
                     )
 
-            return z_what
+            return z_what_loc
 
         def _depth(z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-            z_depth, z_depth_scale = z_depth
-            n_objects = z_depth.shape[1]
+            z_depth_loc, z_depth_scale = z_depth
+            n_objects = z_depth_loc.shape[1]
 
             if self.is_depth_probabilistic:  # else use loc
                 z_depth_loc = x.new_zeros(batch_size, n_objects, 1)
                 z_depth_scale = torch.ones_like(z_depth_loc)
                 with poutine.scale(scale=self.depth_coef(batch_size, n_objects)):
-                    z_depth = pyro.sample(
+                    z_depth_loc = pyro.sample(
                         "z_depth",
                         dist.Normal(z_depth_loc, z_depth_scale).to_event(2),
                     )
 
-            return z_depth
+            return z_depth_loc
 
         pyro.module("decoder", self.decoder)
         batch_size = x.shape[0]
@@ -378,39 +378,39 @@ class DIR(pl.LightningModule):
             return z_present
 
         def _what(z_what: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-            z_what, z_what_scale = z_what
+            z_what_loc, z_what_scale = z_what
 
-            self._store["z_what_loc"] = z_what.detach()
+            self._store["z_what_loc"] = z_what_loc.detach()
             self._store["z_what_scale"] = z_what_scale.detach()
 
-            n_objects = z_what.shape[1]
+            n_objects = z_what_loc.shape[1]
 
             if self.is_what_probabilistic:  # else use loc
                 with poutine.scale(scale=self.what_coef(batch_size, n_objects)):
-                    z_what = pyro.sample(
-                        "z_what", dist.Normal(z_what, z_what_scale).to_event(2)
+                    z_what_loc = pyro.sample(
+                        "z_what", dist.Normal(z_what_loc, z_what_scale).to_event(2)
                     )
 
-            self._store["z_what"] = z_what.detach()
+            self._store["z_what"] = z_what_loc.detach()
 
-            return z_what
+            return z_what_loc
 
         def _depth(z_depth: Tuple[torch.Tensor, torch.Tensor]) -> torch.Tensor:
-            z_depth, z_depth_scale = z_depth
+            z_depth_loc, z_depth_scale = z_depth
 
-            self._store["z_depth_loc"] = z_depth.detach()
+            self._store["z_depth_loc"] = z_depth_loc.detach()
             self._store["z_depth_scale"] = z_depth_scale.detach()
 
-            n_objects = z_depth.shape[1]
+            n_objects = z_depth_loc.shape[1]
 
             if self.is_depth_probabilistic:  # else use depth
                 with poutine.scale(scale=self.depth_coef(batch_size, n_objects)):
-                    z_depth = pyro.sample(
-                        "z_depth", dist.Normal(z_depth, z_depth_scale).to_event(2)
+                    z_depth_loc = pyro.sample(
+                        "z_depth", dist.Normal(z_depth_loc, z_depth_scale).to_event(2)
                     )
-            self._store["z_depth"] = z_depth.detach()
+            self._store["z_depth"] = z_depth_loc.detach()
 
-            return z_depth
+            return z_depth_loc
 
         pyro.module("encoder", self.encoder)
         batch_size = x.shape[0]
@@ -617,7 +617,9 @@ class DIR(pl.LightningModule):
                 },
             }
             visualizations.append(
-                wandb.Image(v_inference, boxes=v_boxes, caption="model inference")
+                wandb.Image(  # type: ignore
+                    v_inference, boxes=v_boxes, caption="model inference"
+                )
             )
         return {f"{stage}_inference": visualizations}
 
@@ -659,7 +661,7 @@ class DIR(pl.LightningModule):
                 )
                 v_objects.paste(v_object, (idx * (v_object.width + 1), 0))
             visualizations.append(
-                wandb.Image(v_objects, caption="reconstructed objects")
+                wandb.Image(v_objects, caption="reconstructed objects")  # type: ignore
             )
         return {f"{stage}_objects": visualizations}
 
@@ -677,15 +679,15 @@ class DIR(pl.LightningModule):
         for latent_name in latents_names:
             if (latent := self._store.get(latent_name)) is None:
                 continue
-            latents[latent_name] = wandb.Histogram(latent.cpu())
+            latents[latent_name] = wandb.Histogram(latent.cpu())  # type: ignore
 
         z_present = self._store["z_present"]
         positive = torch.count_nonzero(z_present > 0, dim=1)
         negative = torch.count_nonzero(z_present < 0, dim=1)
         total = torch.count_nonzero(z_present != 0, dim=1)
-        latents[f"{stage}_n_positive"] = wandb.Histogram(positive.cpu())
-        latents[f"{stage}_n_negative"] = wandb.Histogram(negative.cpu())
-        latents[f"{stage}_n_total"] = wandb.Histogram(total.cpu())
+        latents[f"{stage}_n_positive"] = wandb.Histogram(positive.cpu())  # type: ignore
+        latents[f"{stage}_n_negative"] = wandb.Histogram(negative.cpu())  # type: ignore
+        latents[f"{stage}_n_total"] = wandb.Histogram(total.cpu())  # type: ignore
 
         return latents
 

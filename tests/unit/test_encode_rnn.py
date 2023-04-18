@@ -6,7 +6,6 @@ import torch
 from torch import nn
 
 from src.models.components.encode.rnn import (
-    PackedSequence,
     SeqEncoder,
     SeqRNN,
     packed_forward,
@@ -18,7 +17,7 @@ def sample_packed_sequence():
     """Sample packed sequence."""
     data = torch.rand(3, 16, 4, 4)
     batch_sizes = torch.tensor([2, 1])
-    return PackedSequence(data, batch_sizes)
+    return nn.utils.rnn.PackedSequence(data, batch_sizes)
 
 
 @pytest.mark.parametrize("out_channels", [4, 8])
@@ -76,7 +75,9 @@ def test_seq_encoder_dimensions(yolov4_ints, parsed_yolov4):
     _, neck, head = parsed_yolov4
     inputs = {}
     for key, value in yolov4_ints.items():
-        inputs[key] = PackedSequence(value.expand(2, -1, -1, -1), torch.tensor([1, 1]))
+        inputs[key] = nn.utils.rnn.PackedSequence(
+            value.expand(2, -1, -1, -1), torch.tensor([1, 1])
+        )
 
     anchors = deepcopy(head.num_anchors)
     out_channels = deepcopy(neck.out_channels)

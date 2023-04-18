@@ -1,31 +1,27 @@
 """DIR sequential features processor."""
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Dict, Optional, Tuple, Type
 
 import torch
 from torch import nn
 
 from src.models.components import build_conv2d_block
 
-PackedSequence = nn.utils.rnn.PackedSequence
-Sequence = Union[PackedSequence, Tuple[PackedSequence, ...], Dict[str, PackedSequence]]
-Data = Union[torch.Tensor, Tuple[torch.Tensor, ...], Dict[str, torch.Tensor]]
 
-
-def sequence_to_tensor(sequence: Sequence) -> Tuple[Data, Tuple[Any, ...]]:
+def sequence_to_tensor(sequence):
     """Convert sequence to tensor.
 
     :param sequence: sequence to convert
     :return: sequence data in the same format and kwargs for reconstructing sequence
     """
-    args = tuple()
-    if isinstance(sequence, PackedSequence):
+    args = ()
+    if isinstance(sequence, nn.utils.rnn.PackedSequence):
         data, *args = sequence
         return data, args
 
     if isinstance(sequence, dict):
         ret = {}
         for key, value in sequence.items():
-            if isinstance(value, PackedSequence):
+            if isinstance(value, nn.utils.rnn.PackedSequence):
                 data, *args = value
             else:
                 data, args = sequence_to_tensor(value)
@@ -35,7 +31,7 @@ def sequence_to_tensor(sequence: Sequence) -> Tuple[Data, Tuple[Any, ...]]:
     if isinstance(sequence, tuple):
         ret = []
         for element in sequence:
-            if isinstance(element, PackedSequence):
+            if isinstance(element, nn.utils.rnn.PackedSequence):
                 data, *args = element
             else:
                 data, args = sequence_to_tensor(element)
@@ -45,7 +41,7 @@ def sequence_to_tensor(sequence: Sequence) -> Tuple[Data, Tuple[Any, ...]]:
     raise ValueError(f"Unknown sequence type: {type(sequence)}")
 
 
-def tensor_to_sequence(data: Data, args: Tuple[Any, ...]) -> Sequence:
+def tensor_to_sequence(data, args):
     """Convert tensor to sequence.
 
     :param data: processed sequence data
@@ -53,13 +49,13 @@ def tensor_to_sequence(data: Data, args: Tuple[Any, ...]) -> Sequence:
     :return: processed sequence
     """
     if isinstance(data, torch.Tensor):
-        return PackedSequence(data, *args)
+        return nn.utils.rnn.PackedSequence(data, *args)
 
     if isinstance(data, dict):
         ret = {}
         for key, value in data.items():
             if isinstance(value, torch.Tensor):
-                sequence = PackedSequence(value, *args)
+                sequence = nn.utils.rnn.PackedSequence(value, *args)
             else:
                 sequence = tensor_to_sequence(value, args)
             ret[key] = sequence
@@ -69,7 +65,7 @@ def tensor_to_sequence(data: Data, args: Tuple[Any, ...]) -> Sequence:
         ret = []
         for element in data:
             if isinstance(element, torch.Tensor):
-                sequence = PackedSequence(element, *args)
+                sequence = nn.utils.rnn.PackedSequence(element, *args)
             else:
                 sequence = tensor_to_sequence(element, args)
             ret.append(sequence)
@@ -78,7 +74,7 @@ def tensor_to_sequence(data: Data, args: Tuple[Any, ...]) -> Sequence:
     raise ValueError(f"Unknown data type: {type(data)}")
 
 
-def packed_forward(module: nn.Module, inputs: Sequence) -> Sequence:
+def packed_forward(module: nn.Module, inputs):
     """Forward pass of sequential data through non-sequential module.
 
     :param module: Module to forward pass through.
@@ -106,8 +102,8 @@ class SeqRNN(nn.Module):
 
     @staticmethod
     def preprocess_sequence(
-        sequences: Dict[str, PackedSequence],
-    ) -> Tuple[PackedSequence, Dict[str, Tuple[int, ...]]]:
+        sequences: Dict[str, nn.utils.rnn.PackedSequence],
+    ) -> Tuple[nn.utils.rnn.PackedSequence, Dict[str, torch.Size]]:
         shapes = {}
         datas = []
         lengths = []
@@ -128,8 +124,9 @@ class SeqRNN(nn.Module):
 
     @staticmethod
     def postprocess_sequence(
-        sequence: PackedSequence, permuted_shapes: Dict[str, Tuple[int, ...]]
-    ) -> Dict[str, PackedSequence]:
+        sequence: nn.utils.rnn.PackedSequence,
+        permuted_shapes: Dict[str, Tuple[int, ...]],
+    ) -> Dict[str, nn.utils.rnn.PackedSequence]:
         ret = {}
 
         data, seq_lenghts = nn.utils.rnn.pad_packed_sequence(sequence, batch_first=True)
@@ -148,11 +145,13 @@ class SeqRNN(nn.Module):
             )
         return ret
 
-    def forward(self, x: Dict[str, PackedSequence]) -> Dict[str, PackedSequence]:
+    def forward(
+        self, x: Dict[str, nn.utils.rnn.PackedSequence]
+    ) -> Dict[str, nn.utils.rnn.PackedSequence]:
         x, permuted_shape = self.preprocess_sequence(x)
         x, _ = self._rnn(x)
         if self._post is not None:
-            x = packed_forward(self._post, x)
+            x = packed_forward(self._post, x)  # type: ignore
         return self.postprocess_sequence(x, permuted_shape)
 
 
@@ -230,7 +229,9 @@ class SeqEncoder(nn.Module):
 
         return nn.ModuleDict(modules)
 
-    def forward(self, x: Dict[str, PackedSequence]) -> Dict[str, PackedSequence]:
+    def forward(
+        self, x: Dict[str, nn.utils.rnn.PackedSequence]
+    ) -> Dict[str, nn.utils.rnn.PackedSequence]:
         ret = {}
 
         for idx, feature in x.items():

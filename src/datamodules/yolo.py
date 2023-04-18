@@ -9,13 +9,11 @@ from typing import Any, Dict, Optional, Tuple
 import cv2
 import numpy as np
 import pytorch_lightning as pl
-import torch
 from torch.utils.data.dataloader import DataLoader
 from torch.utils.data.dataset import Dataset
 
 from src.utils import get_logger
 from src.vendor.yolov4.dataset import (
-    blend_truth_mosaic,
     fill_truth_detection,
     image_data_augmentation,
     rand_scale,
@@ -120,21 +118,21 @@ class YOLODataset(Dataset):
             target_height, target_width = (
                 np.array([height, width]) * self.jitter
             ).astype(int)
-            self._augmentation = dict(
-                hue=rand_uniform_strong(-self.hue, self.hue),
-                saturation=rand_scale(self.saturation),
-                exposure=rand_scale(self.exposure),
-                left=random.randint(-target_width, target_width),
-                right=random.randint(-target_width, target_width),
-                top=random.randint(-target_height, target_height),
-                bottom=random.randint(-target_height, target_height),
-                cut_x=random.randint(
+            self._augmentation = {
+                "hue": rand_uniform_strong(-self.hue, self.hue),
+                "saturation": rand_scale(self.saturation),
+                "exposure": rand_scale(self.exposure),
+                "left": random.randint(-target_width, target_width),
+                "right": random.randint(-target_width, target_width),
+                "top": random.randint(-target_height, target_height),
+                "bottom": random.randint(-target_height, target_height),
+                "cut_x": random.randint(
                     int(self.width * min_offset), int(self.width * (1 - min_offset))
                 ),
-                cut_y=random.randint(
+                "cut_y": random.randint(
                     int(self.height * min_offset), int(self.height * (1 - min_offset))
                 ),
-            )
+            }
         return self._augmentation
 
     def _fill_truth_detection(
@@ -214,7 +212,7 @@ class YOLODataset(Dataset):
         height, width, _ = img.shape
         x1y1x2y2 = self.xywh_to_x1y1x2y2(xywh, (height, width))
 
-        kwargs = dict(width=width, height=height)
+        kwargs = {"width": width, "height": height}
         kwargs.update(self._get_augmentation_params(height, width, reuse=reuse))
 
         x1y1x2y2 = self._fill_truth_detection(x1y1x2y2, **kwargs)
@@ -348,10 +346,10 @@ class YOLODataModule(pl.LightningDataModule):
         if not self.prepare:
             return
         data_path = Path(self.data_dir)
-        files = set(str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*"))
+        files = {str(p).replace(self.data_dir, ".") for p in data_path.glob("**/*")}
 
         with tarfile.open(f"{self.data_dir}.tar.gz", "r:gz") as trf:
-            archive_files = set(f for f in trf.getnames())
+            archive_files = set(trf.getnames())
             archive_files.remove(".")
 
             if archive_files != files:

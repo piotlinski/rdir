@@ -4,7 +4,6 @@ from omegaconf import DictConfig
 
 @hydra.main(config_path="configs/", config_name="test.yaml")
 def main(config: DictConfig):
-
     # Imports can be nested inside @hydra.main to optimize tab completion
     # https://github.com/facebookresearch/hydra/issues/934
     from src import utils

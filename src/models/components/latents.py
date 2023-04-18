@@ -5,9 +5,7 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
-from src.models.components.encode.rnn import PackedSequence
-
-Tensor = Union[torch.Tensor, PackedSequence]
+Tensor = Union[torch.Tensor, nn.utils.rnn.PackedSequence]
 
 DIRLatents = Tuple[Tensor, Tensor, Tuple[Tensor, Tensor], Tuple[Tensor, Tensor]]
 DIRRepresentation = Tuple[Tensor, Tensor, Tensor, Tensor]

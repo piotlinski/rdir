@@ -1,0 +1,23 @@
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "B905",  # `zip()` without an explicit `strict=` parameter
+    "C901",  # function is too complex
+]
+
+exclude = [
+    ".direnv",
+    ".git",
+    ".mypy_cache",
+    ".ruff_cache",
+    "data/*",
+    "notebooks/*",
+    "logs/*",
+    "src/vendor/yolov4",
+]

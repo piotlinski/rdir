@@ -10,7 +10,7 @@ from src.models.components.encode.depth import DepthEncoder
 from src.models.components.encode.heads import PresentHead, WhereHead
 from src.models.components.encode.mix import Mixer
 from src.models.components.encode.parse import Backbone, Head, Neck, parse_yolov4
-from src.models.components.encode.rnn import PackedSequence, SeqEncoder, packed_forward
+from src.models.components.encode.rnn import SeqEncoder, packed_forward
 from src.models.components.encode.what import WhatEncoder
 from src.models.components.latents import DIRLatents
 
@@ -20,7 +20,7 @@ class Encoder(nn.Module):
 
     def __init__(
         self,
-        yolo: Union[Tuple[str, Optional[str]], Tuple[Backbone, Neck, Head]],
+        yolo: Union[Tuple[Backbone, Neck, Head], Tuple[str, Optional[str]]],
         z_what_size: int = 64,
         z_what_hidden: int = 1,
         z_what_scale_const: float = -1.0,
@@ -66,9 +66,9 @@ class Encoder(nn.Module):
 
         self.clone_backbone = clone_backbone
         try:
-            self.backbone, self.neck, self.head = yolo
+            self.backbone, self.neck, self.head = yolo  # type: ignore
         except ValueError:
-            yolo_cfg_file, yolo_weights_file = yolo
+            yolo_cfg_file, yolo_weights_file = yolo  # type: ignore
             self.backbone, self.neck, self.head = parse_yolov4(
                 cfg_file=yolo_cfg_file, weights_file=yolo_weights_file
             )
@@ -197,7 +197,7 @@ class RNNEncoder(nn.Module):
             self.encoder.head.num_anchors, self.encoder.mixer.out_channels
         )
 
-    def forward(self, images: PackedSequence) -> DIRLatents:
+    def forward(self, images: nn.utils.rnn.PackedSequence) -> DIRLatents:
         """Encode images sequentially."""
         features = packed_forward(self.encoder.backbone, images)
         intermediates = packed_forward(self.encoder.neck, features)

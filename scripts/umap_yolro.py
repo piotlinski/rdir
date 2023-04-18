@@ -1,7 +1,7 @@
 import argparse
 import os
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,15 +10,17 @@ import seaborn as sns
 import torch
 from scipy.optimize import linear_sum_assignment
 from tqdm.auto import tqdm
-from umap import UMAP
 
-from src.models.dir_module import DIR
 from src.datamodules.yolo import YOLODataModule
+from src.models.dir_module import DIR
+from umap import UMAP  # type: ignore
 
 torch.set_grad_enabled(False)
 
-def xywh_to_x1y1x2y2(boxes: np.ndarray) -> np.ndarray:
+
+def xywh_to_x1y1x2y2(boxes):
     """Convert XYWH boxes to corner boxes.
+
     :param boxes: array of XYWH boxes
     :return: array of corner boxes
     """
@@ -27,8 +29,9 @@ def xywh_to_x1y1x2y2(boxes: np.ndarray) -> np.ndarray:
     return np.concatenate([center - half_size, center + half_size], axis=1)
 
 
-def iou(boxes_1: np.ndarray, boxes_2: np.ndarray, eps: float = 1e-5) -> np.ndarray:
+def iou(boxes_1, boxes_2, eps=1e-5):
     """Calculate intersection over union between two arrays of boxes.
+
     :param boxes_1: Mx4 array of XYWH boxes
     :param boxes_2: Nx4 array of XYWH boxes
     :param eps: epsilon for numerical stability
@@ -47,10 +50,12 @@ def iou(boxes_1: np.ndarray, boxes_2: np.ndarray, eps: float = 1e-5) -> np.ndarr
     return intersections / (unions + eps)
 
 
-def load_dir(checkpoint: str, data_dir: str, batch_size: int = 1, num_workers: int = 0, fallback_config: str = ""):
+def load_dir(checkpoint, data_dir, batch_size=1, num_workers=0, fallback_config=""):
     try:
         encoder = torch.load(checkpoint)["hyper_parameters"]["encoder"]
-        encoder["yolo"] = [p.replace("/workspace", str(Path.cwd())) for p in encoder["yolo"]]
+        encoder["yolo"] = [
+            p.replace("/workspace", str(Path.cwd())) for p in encoder["yolo"]
+        ]
         config_path = encoder["yolo"][0]
     except (KeyError, TypeError):
         config_path = fallback_config
@@ -69,7 +74,9 @@ def load_dir(checkpoint: str, data_dir: str, batch_size: int = 1, num_workers: i
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Generate t-SNE embeddings for DIR; assumes running in root directory."
+        description=(
+            "Generate t-SNE embeddings for DIR; assumes running in root directory."
+        )
     )
     parser.add_argument("--gpu", type=str, default="0")
     parser.add_argument("--batch_size", type=int, default=32)
@@ -81,8 +88,13 @@ def main():
     args = parser.parse_args()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
-
-    model, datamodule = load_dir(args.checkpoint, args.data, batch_size=args.batch_size, num_workers=args.num_workers, fallback_config=args.fallback_config)
+    model, datamodule = load_dir(
+        args.checkpoint,
+        args.data,
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+        fallback_config=args.fallback_config,
+    )
 
     model = model.cuda()
     datamodule.setup()
@@ -113,13 +125,16 @@ def main():
     z = reducer.fit_transform(representation)
     df = pd.DataFrame()
     df["y"] = representation_classes
-    df["x1"] = z[:,0]
-    df["x2"] = z[:,1]
+    df["x1"] = z[:, 0]
+    df["x2"] = z[:, 1]
 
     sns.scatterplot(
-        x="x1", y="x2", hue=df.y.tolist(),
+        x="x1",
+        y="x2",
+        hue=df.y.tolist(),
         palette=sns.color_palette("hls", max(df.y) + 1),
-        data=df, size=1,
+        data=df,
+        size=1,
     ).set(title="Latent space visualization")
 
     filename = f"umap_{args.checkpoint.split('/')[-1]}_{args.data.split('/')[-1]}"

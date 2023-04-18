@@ -3,9 +3,9 @@ from unittest.mock import patch
 
 import pytest
 import torch
+import torch.nn as nn
 
 from src.models.components.encode.encoder import Encoder, RNNEncoder
-from src.models.components.encode.rnn import PackedSequence
 
 
 @pytest.mark.parametrize("z_what_size", [4, 8, 16])
@@ -73,7 +73,9 @@ def test_rnn_encoder_dimensions(
 ):
     """Verify rnn encoder dimensions."""
     parse_yolov4_mock.return_value = parsed_yolov4
-    inputs = PackedSequence(sample_inputs.expand(2, -1, -1, -1), torch.tensor([1, 1]))
+    inputs = nn.utils.rnn.PackedSequence(
+        sample_inputs.expand(2, -1, -1, -1), torch.tensor([1, 1])
+    )
     encoder = Encoder(yolo=("test", None), z_what_size=z_what_size)
     rnn_encoder = RNNEncoder(encoder, n_rnn_hidden=2, rnn_kernel_size=kernel_size)
 

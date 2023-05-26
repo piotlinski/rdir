@@ -8,8 +8,8 @@ import torch.nn as nn
 from src.models.components import build_conv2d_block
 
 
-class Mixer(nn.Module):
-    """Module for mixing multi-level features."""
+class Downscaler(nn.Module):
+    """Module for downscaling features."""
 
     def __init__(self, anchors: Dict[int, int], out_channels: Dict[int, int]):
         super().__init__()
@@ -20,7 +20,6 @@ class Mixer(nn.Module):
         self.out_channels = {key: n_channels for key in self.anchors}
 
         self._downscalers = self._build_downscalers()
-        self._mixers = self._build_mixers()
 
     def _build_downscalers(self):
         """Build downscalers for features."""
@@ -39,6 +38,35 @@ class Mixer(nn.Module):
                 in_channels //= 2
             downscalers[str(key)] = nn.Sequential(*downscaler)
         return nn.ModuleDict(downscalers)
+
+    def forward(self, features: Dict[int, torch.Tensor]) -> Dict[int, torch.Tensor]:
+        ret = {}
+        for key in self.anchors:
+            ret[key] = self._downscalers[str(key)](features[key])
+        return ret
+
+
+class NoMixer(Downscaler):
+    """Dummy module for no mixing."""
+
+    def __init__(self, anchors: Dict[int, int], out_channels: Dict[int, int]):
+        super().__init__(anchors, out_channels)
+        self.out_channels = out_channels
+
+    def _build_downscalers(self):
+        return nn.ModuleDict()
+
+    def forward(self, features: Dict[int, torch.Tensor]) -> Dict[int, torch.Tensor]:
+        return features
+
+
+class Mixer(Downscaler):
+    """Module for mixing multi-level features."""
+
+    def __init__(self, anchors: Dict[int, int], out_channels: Dict[int, int]):
+        super().__init__(anchors, out_channels)
+
+        self._mixers = self._build_mixers()
 
     def _build_mixers(self) -> nn.ModuleDict:
         """Build mixers for features."""
@@ -85,9 +113,7 @@ class Mixer(nn.Module):
         return nn.ModuleDict(mixers)
 
     def forward(self, features: Dict[int, torch.Tensor]) -> Dict[int, torch.Tensor]:
-        ret = {}
-        for key in self.anchors:
-            ret[key] = self._downscalers[str(key)](features[key])
+        ret = super().forward(features)
 
         iterable = list(ret.items())
         for (l_idx, l_features), (s_idx, s_features) in zip(iterable, iterable[1:]):

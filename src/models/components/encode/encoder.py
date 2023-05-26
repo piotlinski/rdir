@@ -8,7 +8,7 @@ from torchvision import ops
 
 from src.models.components.encode.depth import DepthEncoder
 from src.models.components.encode.heads import PresentHead, WhereHead
-from src.models.components.encode.mix import Mixer
+from src.models.components.encode.mix import Downscaler, Mixer, NoMixer
 from src.models.components.encode.parse import Backbone, Head, Neck, parse_yolov4
 from src.models.components.encode.rnn import SeqEncoder, packed_forward
 from src.models.components.encode.what import WhatEncoder
@@ -17,6 +17,7 @@ from src.models.components.latents import DIRLatents
 
 class Encoder(nn.Module):
     """Module encoding input image to latent representation."""
+    MIXERS = {"mixer": Mixer, "downscaler": Downscaler, "none": NoMixer}
 
     def __init__(
         self,
@@ -38,6 +39,7 @@ class Encoder(nn.Module):
         filter_classes: Optional[Tuple[int, ...]] = None,
         nms_threshold: float = 0.45,
         nms_always: bool = False,
+        mixer: str = "mixer"
     ):
         """
         :param yolo: path to yolov4 config file and optional weights
@@ -61,6 +63,7 @@ class Encoder(nn.Module):
         :param filter_classes: filter classes from the prediction
         :param nms_threshold: non-maximum suppression threshold
         :param nms_always: run NMS on train and val
+        :param mixer: mixer type (mixer, downscaler or none)
         """
         super().__init__()
 
@@ -79,7 +82,7 @@ class Encoder(nn.Module):
         self.where_head = WhereHead()
         self.present_head = PresentHead(filter_classes)
 
-        self.mixer = Mixer(self.head.num_anchors, self.neck.out_channels)
+        self.mixer = self.MIXERS[mixer](self.head.num_anchors, self.neck.out_channels)
 
         self.what_enc = what_enc or WhatEncoder(
             latent_dim=z_what_size,
@@ -193,7 +196,7 @@ class RNNEncoder(nn.Module):
             n_cells=n_rnn_cells,
             bidirectional=rnn_bidirectional,
         ).requires_grad_(train_rnn)
-        self.seq_mixer = Mixer(
+        self.seq_mixer = self.encoder.mixer.__class__(
             self.encoder.head.num_anchors, self.encoder.mixer.out_channels
         )
 

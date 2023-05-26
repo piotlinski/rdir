@@ -183,6 +183,7 @@ class SeqEncoder(nn.Module):
         self.n_cells = n_cells
 
         self._encoders = self._build_encoders()
+        self._rnns = self._build_rnns()
 
     def _build_hidden(self, channels: int) -> nn.Module:
         """Prepare single hidden conv layers set."""
@@ -209,7 +210,7 @@ class SeqEncoder(nn.Module):
         )
 
     def _build_encoders(self) -> nn.ModuleDict:
-        """Build models for recurrent encoding latent representation."""
+        """Build models for encoding latent representation pre- and post- rnns."""
         modules = {}
         for idx in self.anchors:
             channels = self.out_channels[idx]
@@ -217,17 +218,21 @@ class SeqEncoder(nn.Module):
             modules[f"{idx}_pre"] = pre
             modules[f"{idx}_post"] = post
 
-        channels = set(self.out_channels.values()).pop()
-        modules["rnn"] = SeqRNN(
-            self.rnn_cls,
-            input_size=channels,
-            hidden_size=channels,
-            bidirectional=self.bidirectional,
-            batch_first=True,
-            num_layers=self.n_cells,
-        )
-
         return nn.ModuleDict(modules)
+
+    def _build_rnns(self) -> nn.ModuleDict:
+        """Build rnns for encoding latent representation."""
+        rnns = {}
+        for channels in set(self.out_channels.values()):
+            rnns[f"rnn_{channels}"] = SeqRNN(
+                self.rnn_cls,
+                input_size=channels,
+                hidden_size=channels,
+                bidirectional=self.bidirectional,
+                batch_first=True,
+                num_layers=self.n_cells,
+            )
+        return nn.ModuleDict(rnns)
 
     def forward(
         self, x: Dict[str, nn.utils.rnn.PackedSequence]
@@ -237,7 +242,13 @@ class SeqEncoder(nn.Module):
         for idx, feature in x.items():
             ret[idx] = packed_forward(self._encoders[f"{idx}_pre"], feature)
 
-        ret = self._encoders["rnn"](ret)
+        if len(self._rnns) == 1:
+            key = list(self._rnns.keys())[0]
+            ret = self._rnns[key](ret)
+        else:
+            for idx, feature in ret.items():
+                channels = self.out_channels[idx]
+                ret[idx] = self._rnns[f"rnn_{channels}"]({idx: feature})[idx]
 
         for idx, feature in ret.items():
             ret[idx] = packed_forward(self._encoders[f"{idx}_post"], feature)

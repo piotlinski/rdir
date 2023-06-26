@@ -56,7 +56,7 @@ class WhereTransformer(nn.Module):
         """
         n_boxes = where_boxes.shape[0]
         transformation_mtx = torch.cat(
-            (torch.zeros((n_boxes, 1), device=where_boxes.device), where_boxes), dim=1
+            (where_boxes.new_zeros((n_boxes, 1)), where_boxes), dim=1
         )
         return transformation_mtx.index_select(
             dim=1,

@@ -100,6 +100,8 @@ class SeqRNN(nn.Module):
                 rnn_kwargs["hidden_size"] * 2, rnn_kwargs["hidden_size"]
             )
 
+        self._hidden: Optional[torch.Tensor] = None
+
     @staticmethod
     def preprocess_sequence(
         sequences: Dict[str, nn.utils.rnn.PackedSequence],
@@ -146,10 +148,10 @@ class SeqRNN(nn.Module):
         return ret
 
     def forward(
-        self, x: Dict[str, nn.utils.rnn.PackedSequence]
+        self, x: Dict[str, nn.utils.rnn.PackedSequence], inject_hidden: bool = False
     ) -> Dict[str, nn.utils.rnn.PackedSequence]:
         x, permuted_shape = self.preprocess_sequence(x)
-        x, _ = self._rnn(x)
+        x, self.hidden = self._rnn(x, self.hidden if inject_hidden else None)
         if self._post is not None:
             x = packed_forward(self._post, x)  # type: ignore
         return self.postprocess_sequence(x, permuted_shape)
@@ -235,7 +237,7 @@ class SeqEncoder(nn.Module):
         return nn.ModuleDict(rnns)
 
     def forward(
-        self, x: Dict[str, nn.utils.rnn.PackedSequence]
+        self, x: Dict[str, nn.utils.rnn.PackedSequence], inject_hidden: bool = False
     ) -> Dict[str, nn.utils.rnn.PackedSequence]:
         ret = {}
 
@@ -248,7 +250,7 @@ class SeqEncoder(nn.Module):
         else:
             for idx, feature in ret.items():
                 channels = self.out_channels[idx]
-                ret[idx] = self._rnns[f"rnn_{channels}"]({idx: feature})[idx]
+                ret[idx] = self._rnns[f"rnn_{channels}"]({idx: feature}, inject_hidden)[idx]
 
         for idx, feature in ret.items():
             ret[idx] = packed_forward(self._encoders[f"{idx}_post"], feature)

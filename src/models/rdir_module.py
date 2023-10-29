@@ -27,6 +27,7 @@ class RDIR(DIR):
         rnn_bidirectional: bool = False,
         train_rnn: bool = True,
         pretrain_steps: int = 0,
+        inject_hidden: bool = False,
         **dir_kwargs,
     ):
         super().__init__(**dir_kwargs)
@@ -42,6 +43,7 @@ class RDIR(DIR):
         self.pretrain_steps = pretrain_steps
         self.save_requires_grad()
         self._is_pretrain = False
+        self._inject_hidden = inject_hidden
 
         self.save_hyperparameters()
 
@@ -105,7 +107,7 @@ class RDIR(DIR):
 
     def encoder_forward(self, x: nn.utils.rnn.PackedSequence) -> DIRLatents:
         """Forward pass through the encoder."""
-        return self.rnn_encoder(x)
+        return self.rnn_encoder(x, inject_hidden=self._inject_hidden)
 
     def sample_latents(self, latents: DIRLatents) -> DIRRepresentation:
         """Sample latents o create representation."""

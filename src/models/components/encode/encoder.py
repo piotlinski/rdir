@@ -200,7 +200,7 @@ class RNNEncoder(nn.Module):
             self.encoder.head.num_anchors, self.encoder.mixer.out_channels
         )
 
-    def forward(self, images: nn.utils.rnn.PackedSequence) -> DIRLatents:
+    def forward(self, images: nn.utils.rnn.PackedSequence, inject_hidden: bool = False) -> DIRLatents:
         """Encode images sequentially."""
         features = packed_forward(self.encoder.backbone, images)
         intermediates = packed_forward(self.encoder.neck, features)
@@ -218,7 +218,7 @@ class RNNEncoder(nn.Module):
             intermediates = packed_forward(self.encoder.cloned_neck, features)
 
         intermediates = packed_forward(self.encoder.mixer, intermediates)
-        intermediates = self.seq_enc(intermediates)
+        intermediates = self.seq_enc(intermediates, inject_hidden)
         intermediates = packed_forward(self.seq_mixer, intermediates)
 
         z_what = packed_forward(self.encoder.what_enc, intermediates)

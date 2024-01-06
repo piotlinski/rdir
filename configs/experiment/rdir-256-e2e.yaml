@@ -1,0 +1,34 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: dir_sequential.yaml
+  - override /model: rdir.yaml
+  - override /darknet: mot15.yaml
+  - override /logger: wandb.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+
+seed: 13
+darknet:
+  training:
+    size: 256
+  config: /workspace/data/yolo/results/coco-yolov4-blond-carp.cfg
+  weights: /workspace/data/yolo/results/coco-yolov4-blond-carp.weights
+datamodule:
+  batch_size: 4
+model:
+  negative_percentage: 0.01
+  max_objects: 20
+  encoder:
+    z_what_hidden: 5
+    z_what_size: 128
+    train_neck: true
+    train_head: true
+  decoder:
+    decoder_channels: 128
+    square_boxes: true
+    use_render: true
+
+logger:
+  wandb:
+    tags: ["256-e2e"]

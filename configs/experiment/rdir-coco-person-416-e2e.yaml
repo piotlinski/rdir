@@ -1,0 +1,31 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: dir_sequential.yaml
+  - override /model: rdir.yaml
+  - override /darknet: mot15.yaml
+  - override /logger: wandb.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+
+seed: 13
+darknet:
+  training:
+    size: 416
+  config: /workspace/data/yolo/results/coco-person-yolov4-versatile-pigeon.cfg
+  weights: /workspace/data/yolo/results/coco-person-yolov4-versatile-pigeon.weights
+datamodule:
+  batch_size: 4
+model:
+  negative_percentage: 0.01
+  encoder:
+    z_what_hidden: 5
+    z_what_size: 128
+  decoder:
+    decoder_channels: 128
+    square_boxes: true
+    use_render: true
+
+logger:
+  wandb:
+    tags: ["coco-person-416-e2e"]

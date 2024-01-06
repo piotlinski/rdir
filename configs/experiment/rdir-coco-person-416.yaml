@@ -1,0 +1,25 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: dir_sequential.yaml
+  - override /model: rdir_resume.yaml
+  - override /darknet: mot15.yaml
+  - override /logger: wandb.yaml
+  - override /callbacks: default.yaml
+  - override /trainer: default.yaml
+
+seed: 13
+darknet:
+  training:
+    size: 416
+  config: /workspace/data/yolo/results/coco-person-yolov4-versatile-pigeon.cfg
+datamodule:
+  batch_size: 4
+model:
+  _target_: src.models.rdir_module.RDIR.load_from_checkpoint
+  checkpoint_path: ???
+  pretrain_steps: 500
+  negative_percentage: 0.01
+logger:
+  wandb:
+    tags: ["coco-person-416"]

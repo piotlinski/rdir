@@ -250,7 +250,9 @@ class SeqEncoder(nn.Module):
         else:
             for idx, feature in ret.items():
                 channels = self.out_channels[idx]
-                ret[idx] = self._rnns[f"rnn_{channels}"]({idx: feature}, inject_hidden)[idx]
+                ret[idx] = self._rnns[f"rnn_{channels}"]({idx: feature}, inject_hidden)[
+                    idx
+                ]
 
         for idx, feature in ret.items():
             ret[idx] = packed_forward(self._encoders[f"{idx}_post"], feature)

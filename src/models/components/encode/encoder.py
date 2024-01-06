@@ -17,6 +17,7 @@ from src.models.components.latents import DIRLatents
 
 class Encoder(nn.Module):
     """Module encoding input image to latent representation."""
+
     MIXERS = {"mixer": Mixer, "downscaler": Downscaler, "none": NoMixer}
 
     def __init__(
@@ -39,7 +40,7 @@ class Encoder(nn.Module):
         filter_classes: Optional[Tuple[int, ...]] = None,
         nms_threshold: float = 0.45,
         nms_always: bool = False,
-        mixer: str = "mixer"
+        mixer: str = "mixer",
     ):
         """
         :param yolo: path to yolov4 config file and optional weights
@@ -200,7 +201,9 @@ class RNNEncoder(nn.Module):
             self.encoder.head.num_anchors, self.encoder.mixer.out_channels
         )
 
-    def forward(self, images: nn.utils.rnn.PackedSequence, inject_hidden: bool = False) -> DIRLatents:
+    def forward(
+        self, images: nn.utils.rnn.PackedSequence, inject_hidden: bool = False
+    ) -> DIRLatents:
         """Encode images sequentially."""
         features = packed_forward(self.encoder.backbone, images)
         intermediates = packed_forward(self.encoder.neck, features)

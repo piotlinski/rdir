@@ -5,8 +5,8 @@ import pyro
 import pytest
 import torch
 
-from src.models.rdir_module import RDIR
 from src.models.dir_module import DIR
+from src.models.rdir_module import RDIR
 
 
 @pytest.fixture

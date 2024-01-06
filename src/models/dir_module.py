@@ -10,17 +10,17 @@ import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import wandb  # type: ignore
 from omegaconf import DictConfig
 from torchmetrics import MeanSquaredError
 
-import wandb  # type: ignore
 from src.models.components.decode.decoder import Decoder
 from src.models.components.decode.where import WhereTransformer
 from src.models.components.encode.encoder import Encoder
 from src.models.components.latents import (
-    LatentHandler,
     DIRLatents,
     DIRRepresentation,
+    LatentHandler,
 )
 
 dist.enable_validation(False)

@@ -1,0 +1,7 @@
+defaults:
+  - default.yaml
+
+training:
+  n_classes: 1
+  data_dir: ${original_work_dir}/data/mot15
+  max_batches: 6000

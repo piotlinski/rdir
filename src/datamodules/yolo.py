@@ -77,7 +77,7 @@ class YOLODataset(Dataset):
         img_path = self.files[idx]
         if not self.is_train:
             img, xywh = self.get_original(img_path)
-            img = cv2.resize(img, (self.width, self.height))
+            img = cv2.resize(img, (self.width, self.height), interpolation=cv2.INTER_NEAREST)
         else:
             img, x1y1x2y2 = self.get_augmented(img_path, reuse=False)
 

@@ -99,7 +99,8 @@ class LatentHandler(nn.Module):
         indices = []
         for idx, n in enumerate(torch.sum(z_present, dim=1, dtype=torch.long)):
             row = zero[zero[:, 0] == idx][:, 1]
-            row = F.pad(row, (padded_size - len(row), 0), value=row[0])
+            value = row[0] if len(row) > 0 else 0.0
+            row = F.pad(row, (padded_size - len(row), 0), value=value)
             row[:n] = -1
             indices.append(row)
 

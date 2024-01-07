@@ -11,6 +11,12 @@ Code will be released soon.
 
 > Learning temporally coherent representations of multiple objects in videos is crucial for understanding their complex dynamics and interactions over time. In this paper, we present a deep generative neural network, which can learn such representations by leveraging pretraining. Our model builds upon a scale-invariant structured autoencoder, extending it with a convolutional recurrent module to refine the learned representations through time and enable information sharing among multiple cells in multi-scale grids. This novel approach provides a framework for learning perobject representations from a pretrained object detection model, offering the ability to infer predefined types of objects, without the need for supervision. Through a series of experiments on benchmark datasets and real-life video footage, we demonstrate the spatial and temporal coherence of the learned representations, showcasing their applicability in downstream tasks such as object tracking. We analyze the method’s robustness by conducting an ablation study, and we compare it to other methods, highlighting the importance of the quality of objects’ representations.
 
+## Datasets
+
+In this research we use the following datasets:
+- [**Moving multi-scale MNIST**](https://github.com/piotlinski/moving_multiscalemnist) - an extension to the multiscalemnist dataset with randomized digit movement.
+- [**MoVi datasets**](https://github.com/piotlinski/kubric) - a fork of Google Research's [Kubric](https://github.com/google-research/kubric) repository with parsing to YOLO format.
+
 # Citation
 ```
 @InProceedings{Zielinski_2024_WACV,

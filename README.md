@@ -2,8 +2,6 @@
 
 Official repository for RDIR: Capturing Temporally-Invariant Representations of Multiple Objects in Videos accepted at the Winter Conference on Applications of Computer Vision (WACV) 2024 (Workshops).
 
-Code will be released soon.
-
 | [Paper](https://openaccess.thecvf.com/content/WACV2024W/Pretrain/papers/Zielinski_RDIR_Capturing_Temporally-Invariant_Representations_of_Multiple_Objects_in_Videos_WACVW_2024_paper.pdf) | [Supplementary](https://openaccess.thecvf.com/content/WACV2024W/Pretrain/papers/Zielinski_RDIR_Capturing_Temporally-Invariant_Representations_of_Multiple_Objects_in_Videos_WACVW_2024_paper.pdf) | [Bibtex](#citation) |
 | :---: | :---: | :---: |
 

@@ -3,7 +3,7 @@ name = "rdir"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.11"
 dependencies = [
     "torch==1.13.1",
     "torchvision==0.14.1",
@@ -20,7 +20,7 @@ dependencies = [
     "tqdm",
     "easydict==1.9",
     "pillow==9.1.0",
-    "opencv_python==4.5.5.64",
+    "opencv_python==4.8.0.74",
     "pycocotools",
     "pyro-ppl==1.8.0",
     "numpy<2",

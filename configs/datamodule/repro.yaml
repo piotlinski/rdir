@@ -1,0 +1,15 @@
+_target_: src.datamodules.repro.XYWHDataModule
+
+name: ""
+data_dir: ${darknet.training.data_dir}
+config_path: ${darknet.config}
+
+batch_size: 128
+num_workers: 1
+size: 256
+n_classes: ???
+pin_memory: true
+max_boxes: 100
+crop: false
+flip: true
+prepare: false

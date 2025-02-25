@@ -141,7 +141,7 @@ class RDIRDataModule(pl.LightningDataModule):
             self.val_dataset = RDIRDataset(
                 dataset_dir=self.data_dir,
                 config_path=self.config_path,
-                files_path="test.txt",
+                files_path="val.txt",
                 is_train=False,
                 image_size=self.image_size,
                 max_boxes=self.max_boxes,

@@ -1,0 +1,42 @@
+# @package _global_
+
+defaults:
+  - override /datamodule: yolo.yaml
+  - override /model: dir.yaml
+  - override /callbacks: default.yaml
+  - override /logger: wandb.yaml
+  - override /trainer: default.yaml
+  - override /darknet: coco.yaml
+
+darknet:
+  training:
+    size: 256
+
+datamodule:
+  batch_size: 64
+  num_workers: 8
+
+
+model:
+  learning_rate: 1e-4
+  encoder:
+    clone_backbone: neck
+    z_what_size: 128
+
+  decoder:
+    decoded_size: 32
+    decoder_channels: 128
+    square_boxes: True
+    use_render: True
+
+
+trainer:
+  min_epochs: 20
+  max_epochs: 100
+  gpus: 1
+
+seed: 13
+
+logger:
+  wandb:
+    tags: ["repro"]

@@ -10,6 +10,6 @@ size: 256
 n_classes: ???
 pin_memory: true
 max_boxes: 100
-crop: false
+crop: true
 flip: true
 prepare: false
